@@ -177,8 +177,8 @@ getBucketLifecycleConfiguration on bucket ${this.options.s3Bucket} in region ${t
 
     // if showIn of path column has 'create' or 'edit' remove it
     const pathColumn = resourceConfig.columns[pathColumnIndex];
-    if (pathColumn.showIn && (pathColumn.showIn.includes('create') || pathColumn.showIn.includes('edit'))) {
-      pathColumn.showIn = pathColumn.showIn.filter((view: string) => !['create', 'edit'].includes(view));
+    if (pathColumn.showIn && (pathColumn.showIn.create || pathColumn.showIn.edit)) {
+      pathColumn.showIn = { ...pathColumn.showIn, create: false, edit: false };
     }
 
     virtualColumn.required = pathColumn.required;
