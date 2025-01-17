@@ -1,9 +1,13 @@
 {
   "name": "@adminforth/upload",
-  "version": "1.0.31-next.1",
+  "version": "1.0.31",
   "description": "",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/devforth/adminforth-upload.git"
+  },
   "scripts": {
     "rollout": "tsc && rsync -av --exclude 'node_modules' custom dist/ && npm version patch && npm publish --access public",
     "prepare": "npm link adminforth",
@@ -11,10 +15,34 @@
     "build": "tsc"
   },
   "type": "module",
-  "author": "",
+  "author": "devforth",
   "license": "ISC",
   "dependencies": {
     "@aws-sdk/client-s3": "^3.629.0",
     "@aws-sdk/s3-request-presigner": "^3.629.0"
+  },
+  "release": {
+    "plugins": [
+      "@semantic-release/commit-analyzer",
+      "@semantic-release/release-notes-generator",
+      "@semantic-release/npm",
+      "@semantic-release/github",
+      [
+        "semantic-release-slack-bot",
+        {
+          "notifyOnSuccess": true,
+          "notifyOnFail": true,
+          "slackIcon": ":package:",
+          "markdownReleaseNotes": true
+        }
+      ]
+    ],
+    "branches": [
+      "main",
+      {
+        "name": "next",
+        "prerelease": true
+      }
+    ]
   }
 }
