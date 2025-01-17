@@ -1,5 +1,6 @@
 #!/bin/sh
 
+set -x
 
 COMMIT_SHORT_SHA=$(echo $CI_COMMIT_SHA | cut -c1-8)
 

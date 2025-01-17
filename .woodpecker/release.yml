@@ -39,5 +39,5 @@ steps:
     image: curlimages/curl
     commands:
       - export $(cat /woodpecker/deploy.vault.env | xargs)
-      - /bin/sh +x ./.woodpecker/buildSlackNotify.sh
+      - /bin/sh ./.woodpecker/buildSlackNotify.sh
 
