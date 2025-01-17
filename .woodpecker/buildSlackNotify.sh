@@ -1,6 +1,5 @@
 #!/bin/sh
 
-set -x
 
 COMMIT_SHORT_SHA=$(echo $CI_COMMIT_SHA | cut -c1-8)
 
@@ -23,6 +22,8 @@ if [ "$CI_STEP_STATUS" = "success" ]; then
 fi
 export BUILD_LOG=$(cat ./build.log)
 
+## escape double quotes in the build log
+BUILD_LOG=$(echo $BUILD_LOG | sed 's/"/\\"/g')
 
 MESSAGE="Broke \`$CI_REPO_NAME/$CI_COMMIT_BRANCH\` with commit _${CI_COMMIT_MESSAGE}_ (<$CI_COMMIT_URL|$COMMIT_SHORT_SHA>)"
 CODE_BLOCK="\`\`\`$BUILD_LOG\n\`\`\`"
@@ -40,4 +41,4 @@ curl -sS -X POST -H "Content-Type: application/json" -d '{
         "pretext": "'"$MESSAGE"'"
     }
   ]
-}' "$DEVELOPERS_SLACK_WEBHOOK"
+}' "$DEVELOPERS_SLACK_WEBHOOK" 2>&1
