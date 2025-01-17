@@ -1,7 +1,7 @@
 {
   "name": "@adminforth/upload",
   "version": "1.0.31",
-  "description": "",
+  "description": "Plugin for uploading files for adminforth",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "repository": {
