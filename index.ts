@@ -152,9 +152,6 @@ getBucketLifecycleConfiguration on bucket ${this.options.s3Bucket} in region ${t
         filter: false,
       }
     };
-
-   
-
    
     if (!resourceConfig.columns[pathColumnIndex].components) {
       resourceConfig.columns[pathColumnIndex].components = {};
