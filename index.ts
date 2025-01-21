@@ -145,9 +145,11 @@ getBucketLifecycleConfiguration on bucket ${this.options.s3Bucket} in region ${t
         },
       },
       showIn: {
-        all: false,
         create: true,
         edit: true,
+        list: false,
+        show: false,
+        filter: false,
       }
     };
 
