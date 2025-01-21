@@ -144,7 +144,11 @@ getBucketLifecycleConfiguration on bucket ${this.options.s3Bucket} in region ${t
           meta: pluginFrontendOptions,
         },
       },
-      showIn: ['edit', 'create'],
+      showIn: {
+        all: false,
+        create: true,
+        edit: true,
+      }
     };
 
    
