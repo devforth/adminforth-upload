@@ -150,7 +150,7 @@ getBucketLifecycleConfiguration on bucket ${this.options.s3Bucket} in region ${t
         list: false,
         show: false,
         filter: false,
-      }
+      },
     };
    
     if (!resourceConfig.columns[pathColumnIndex].components) {
