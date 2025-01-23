@@ -156,21 +156,18 @@ getBucketLifecycleConfiguration on bucket ${this.options.s3Bucket} in region ${t
     if (!resourceConfig.columns[pathColumnIndex].components) {
       resourceConfig.columns[pathColumnIndex].components = {};
     }
+    const pathColumn = resourceConfig.columns[pathColumnIndex];
     
-    if (this.options.preview?.showInList || this.options.preview?.showInList === undefined) {
-      // add preview column to list
-      resourceConfig.columns[pathColumnIndex].components.list = {
-        file: this.componentPath('preview.vue'),
-        meta: pluginFrontendOptions,
-      };
-    }
+    // add preview column to list
+    resourceConfig.columns[pathColumnIndex].components.list = {
+      file: this.componentPath('preview.vue'),
+      meta: pluginFrontendOptions,
+    };
 
-    if (this.options.preview?.showInShow || this.options.preview?.showInShow === undefined) {
-      resourceConfig.columns[pathColumnIndex].components.show = {
-        file: this.componentPath('preview.vue'),
-        meta: pluginFrontendOptions,
-      };
-    }
+    resourceConfig.columns[pathColumnIndex].components.show = {
+      file: this.componentPath('preview.vue'),
+      meta: pluginFrontendOptions,
+    };
 
     // insert virtual column after path column if it is not already there
     const virtualColumnIndex = resourceConfig.columns.findIndex((column: any) => column.name === virtualColumn.name);
@@ -178,10 +175,16 @@ getBucketLifecycleConfiguration on bucket ${this.options.s3Bucket} in region ${t
       resourceConfig.columns.splice(pathColumnIndex + 1, 0, virtualColumn);
     }
 
-    // if showIn of path column has 'create' or 'edit' remove it
-    const pathColumn = resourceConfig.columns[pathColumnIndex];
-    if (pathColumn.showIn && (pathColumn.showIn.create || pathColumn.showIn.edit)) {
-      pathColumn.showIn = { ...pathColumn.showIn, create: false, edit: false };
+
+    // if showIn of path column has 'create' or 'edit' remove it but use it for virtual column
+    if (pathColumn.showIn && (pathColumn.showIn.create !== undefined)) {
+      virtualColumn.showIn = { ...virtualColumn.showIn, create: pathColumn.showIn.create };
+      pathColumn.showIn = { ...pathColumn.showIn, create: false };
+    }
+
+    if (pathColumn.showIn && (pathColumn.showIn.edit !== undefined)) {
+      virtualColumn.showIn = { ...virtualColumn.showIn, edit: pathColumn.showIn.edit };
+      pathColumn.showIn = { ...pathColumn.showIn, edit: false };
     }
 
     virtualColumn.required = pathColumn.required;
@@ -229,30 +232,33 @@ getBucketLifecycleConfiguration on bucket ${this.options.s3Bucket} in region ${t
 
 
     // add show hook to get presigned URL
-    resourceConfig.hooks.show.afterDatasourceResponse.push(async ({ response }: { response: any }) => {
-      const record = response[0];
-      if (!record) {
+    if (pathColumn.showIn.show) {
+
+      resourceConfig.hooks.show.afterDatasourceResponse.push(async ({ response }: { response: any }) => {
+        const record = response[0];
+        if (!record) {
+          return { ok: true };
+        }
+        if (record[pathColumnName]) {
+          const s3 = new S3({
+            credentials: {
+              accessKeyId: this.options.s3AccessKeyId,
+              secretAccessKey: this.options.s3SecretAccessKey,
+            },
+
+            region: this.options.s3Region,
+          });
+
+          await this.genPreviewUrl(record, s3);
+        }
         return { ok: true };
-      }
-      if (record[pathColumnName]) {
-        const s3 = new S3({
-          credentials: {
-            accessKeyId: this.options.s3AccessKeyId,
-            secretAccessKey: this.options.s3SecretAccessKey,
-          },
-
-          region: this.options.s3Region,
-        });
-
-        await this.genPreviewUrl(record, s3);
-      }
-      return { ok: true };
-    });
+      });
+    }
 
     // ** HOOKS FOR LIST **//
 
 
-    if (this.options.preview?.showInList || this.options.preview?.showInList === undefined) {
+    if (pathColumn.showIn.list) {
       resourceConfig.hooks.list.afterDatasourceResponse.push(async ({ response }: { response: any }) => {
         const s3 = new S3({
           credentials: {
