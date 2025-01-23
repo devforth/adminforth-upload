@@ -65,18 +65,6 @@ export type PluginOptions = {
   preview: {
 
     /**
-     * Whether to show preview of image instead of path in list field
-     * By default true
-     */
-    showInList?: boolean,
-
-    /**
-     * Whether to show preview of image instead of path in list field
-     * By default true
-     */
-    showInShow?: boolean,
-
-    /**
      * Maximum width of the preview image
      */
     maxWidth?: string,
