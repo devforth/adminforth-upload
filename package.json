@@ -25,7 +25,8 @@
     "upload",
     "plugin",
     "s3-upload",
-    "aws-s3"
+    "aws-s3",
+    "file-upload"
   ],
   "release": {
     "plugins": [
