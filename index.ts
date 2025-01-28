@@ -124,6 +124,7 @@ getBucketLifecycleConfiguration on bucket ${this.options.s3Bucket} in region ${t
       pluginInstanceId: this.pluginInstanceId,
       resourceLabel: resourceConfig.label,
       generateImages: this.options.generation ? true : false,
+      pathColumnName,
       pathColumnLabel: resourceConfig.columns[pathColumnIndex].label,
       fieldsForContext: this.options.generation?.fieldsForContext,
       maxWidth: this.options.preview?.maxWidth,

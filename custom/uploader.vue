@@ -125,6 +125,7 @@ onMounted(() => {
     imgPreview.value = props.record[previewColumnName];
     uploaded.value = true;
     emit('update:emptiness', false);
+    emit('update:value', props.record[props.meta.pathColumnName]);
   }
 });
 
