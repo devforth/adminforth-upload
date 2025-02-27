@@ -39,7 +39,11 @@
     background: rgba(0, 0, 0, 0.8);
   }
   .medium-zoom-overlay {
-    background: rgba(255, 255, 255, 0.8) !important
+    z-index: 99;
+    background: rgba(255, 255, 255, 0.8) !important;
+  }
+  html.dark .medium-zoom-overlay {
+    background: rgba(17, 24, 39, 0.7) !important;
   }
   body.medium-zoom--opened aside {
     filter: grayscale(1)
