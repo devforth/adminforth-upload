@@ -129,6 +129,9 @@ getBucketLifecycleConfiguration on bucket ${this.options.s3Bucket} in region ${t
       maxWidth: this.options.preview?.maxWidth,
       maxListWidth: this.options.preview?.maxListWidth,
       maxShowWidth: this.options.preview?.maxShowWidth,
+      minWidth: this.options.preview?.minWidth,
+      minListWidth: this.options.preview?.minListWidth,
+      minShowWidth: this.options.preview?.minShowWidth,
     };
     // define components which will be imported from other components
     this.componentPath('imageGenerator.vue');

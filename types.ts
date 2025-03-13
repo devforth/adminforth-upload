@@ -78,6 +78,22 @@ export type PluginOptions = {
      * Maximum width of the preview image in show view
      */
     maxShowWidth?: string,
+    
+
+    /**
+     * Minimum width of the preview image
+     */
+    minWidth?: string,
+
+    /**
+     * Minimum width of the preview image in list view
+     */
+    minListWidth?: string,
+
+    /**
+     * Minimum width of the preview image in show view
+     */
+    minShowWidth?: string,
 
     /**
      * Used to display preview (if it is image) in list and show views.
