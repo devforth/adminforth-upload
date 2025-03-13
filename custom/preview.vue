@@ -61,6 +61,7 @@
 <script setup>
 import { ref, computed , onMounted, watch} from 'vue'
 import mediumZoom from 'medium-zoom'
+import { useRoute } from 'vue-router'
 
 const img = ref(null);
 const zoom = ref(null);
@@ -71,12 +72,19 @@ const props = defineProps({
   meta: Object,
 })
 
+const route = useRoute();
 const url = computed(() => {
   return props.record[`previewUrl_${props.meta.pluginInstanceId}`];
 });
 
-const maxWidth = computed(() => props.meta.maxWidth ? { maxWidth: props.meta.maxWidth } : {});
+const maxWidth = computed(() => {
+  const isShowPage = route.path.includes('/show/');
+  const width = isShowPage 
+    ? (props.meta.maxShowWidth || props.meta.maxWidth)
+    : (props.meta.maxListWidth || props.meta.maxWidth);
 
+  return width ? { maxWidth: width } : {};
+});
 
 // since we have no way to know the content type of the file, we will try to guess it from extension
 // for better experience probably we should check whether user saves content type in the database and use it here
