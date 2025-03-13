@@ -5,7 +5,7 @@
         v-if="contentType && contentType.startsWith('image')"
         :src="url" 
         class="rounded-md" 
-        :style="maxWidth"
+        :style="[maxWidth, minWidth]"
         ref="img"
         data-zoomable
         @click.stop="zoom.open()" 
@@ -51,12 +51,12 @@
 </style>
 
 <style scoped>
-  img {
+  /* img {
     min-width: 150px;
   }
   video {
     min-width: 200px;
-  }
+  } */
 </style>
 <script setup>
 import { ref, computed , onMounted, watch} from 'vue'
@@ -86,6 +86,14 @@ const maxWidth = computed(() => {
   return width ? { maxWidth: width } : {};
 });
 
+const minWidth = computed(() => {
+  const isShowPage = route.path.includes('/show/');
+  const width = isShowPage 
+    ? (props.meta.minShowWidth || props.meta.minWidth)
+    : (props.meta.minListWidth || props.meta.minWidth);
+
+  return width ? { minWidth: width } : {};
+});
 // since we have no way to know the content type of the file, we will try to guess it from extension
 // for better experience probably we should check whether user saves content type in the database and use it here
 const contentType = computed(() => {
