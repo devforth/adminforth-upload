@@ -62,7 +62,7 @@ export type PluginOptions = {
   }) => string,
 
 
-  preview: {
+  preview?: {
 
     /**
      * Maximum width of the preview image
