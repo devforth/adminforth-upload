@@ -27,12 +27,12 @@ export default class UploadPlugin extends AdminForthPlugin {
     const CLEANUP_RULE_ID = 'adminforth-unused-cleaner';
 
     const s3 = new S3({
-        credentials: {
-          accessKeyId: this.options.s3AccessKeyId,
-          secretAccessKey: this.options.s3SecretAccessKey,
-        },
-        region: this.options.s3Region,
-      });
+      credentials: {
+        accessKeyId: this.options.s3AccessKeyId,
+        secretAccessKey: this.options.s3SecretAccessKey,
+      },
+      region: this.options.s3Region,
+    });
    
     // check bucket exists
     const bucketExists = s3.headBucket({ Bucket: this.options.s3Bucket })
@@ -125,13 +125,14 @@ getBucketLifecycleConfiguration on bucket ${this.options.s3Bucket} in region ${t
       resourceLabel: resourceConfig.label,
       generateImages: this.options.generation ? true : false,
       pathColumnLabel: resourceConfig.columns[pathColumnIndex].label,
-      fieldsForContext: this.options.generation?.fieldsForContext,
       maxWidth: this.options.preview?.maxWidth,
       maxListWidth: this.options.preview?.maxListWidth,
       maxShowWidth: this.options.preview?.maxShowWidth,
       minWidth: this.options.preview?.minWidth,
       minListWidth: this.options.preview?.minListWidth,
       minShowWidth: this.options.preview?.minShowWidth,
+      generationPrompt: this.options.generation?.generationPrompt,
+      recorPkFieldName: this.resourceConfig.columns.find((column: any) => column.primaryKey)?.name,
     };
     // define components which will be imported from other components
     this.componentPath('imageGenerator.vue');
@@ -481,12 +482,8 @@ getBucketLifecycleConfiguration on bucket ${this.options.s3Bucket} in region ${t
     server.endpoint({
       method: 'POST',
       path: `/plugin/${this.pluginInstanceId}/generate_images`,
-      handler: async ({ body, headers }) => {
-        const { prompt } = body;
-
-        if (this.options.generation.provider !== 'openai-dall-e') {
-          throw new Error(`Provider ${this.options.generation.provider} is not supported`);
-        }
+      handler: async ({ body, adminUser, headers }) => {
+        const { prompt, recordId } = body;
 
         if (this.options.generation.rateLimit?.limit) {
           // rate limit
@@ -499,35 +496,51 @@ getBucketLifecycleConfiguration on bucket ${this.options.s3Bucket} in region ${t
             return { error: this.options.generation.rateLimit.errorMessage };
           }
         }
+        let attachmentFiles = [];
+        if (this.options.generation.attachFiles) {
+          // TODO - does it require additional allowed action to check this record id has access to get the image?
+          // or should we mention in docs that user should do validation in method itself
+          const record = await this.adminforth.resource(this.resourceConfig.resourceId).get(
+            [Filters.EQ(this.resourceConfig.columns.find((column: any) => column.primaryKey)?.name, recordId)]
+          );
 
-        const { model, size, apiKey } = this.options.generation.openAiOptions;
-        const url = 'https://api.openai.com/v1/images/generations';
+          if (!record) {
+            return { error: `Record with id ${recordId} not found` };
+          }
+          
+          attachmentFiles = this.options.generation.attachFiles({ record, adminUser });
+          // if files is not array, make it array
+          if (!Array.isArray(attachmentFiles)) {
+            attachmentFiles = [attachmentFiles];
+          }
 
-        let error = null;
+        }
+        
+        let error: string | undefined = undefined;
+
+        const STUB_MODE = false;
+
         const images = await Promise.all(
           (new Array(this.options.generation.countToGenerate)).fill(0).map(async () => {
-            const response = await fetch(url, {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${apiKey}`,
-              },
-              body: JSON.stringify({
-                model,
+            if (STUB_MODE) {
+              await new Promise((resolve) => setTimeout(resolve, 2000));
+              return `https://picsum.photos/200/300?random=${Math.floor(Math.random() * 1000)}`;
+            }
+            const resp = await this.options.generation.adapter.generate(
+              {
                 prompt,
+                inputFiles: attachmentFiles,
                 n: 1,
-                size,
-              })
-            });
+              }
+            )
 
-            const json = await response.json();
-            if (json.error) {
-              console.error('Error generating image', json.error);
-              error = json.error;
+            if (resp.error) {
+              console.error('Error generating image', resp.error);
+              error = resp.error;
               return;
             }
             
-            return json;
+            return resp.imageURLs[0]
 
           })
         );

@@ -1,3 +1,4 @@
+import { AdminUser, ImageGenerationAdapter } from "adminforth";
 
 export type PluginOptions = {
 
@@ -115,11 +116,8 @@ export type PluginOptions = {
    * AI image generation options
    */
   generation?: {
-    /**
-     * The provider to use for image generation
-     * for now only 'openai-dall-e' is supported
-     */
-    provider: string,
+    adapter: ImageGenerationAdapter,
+
 
     /**
      * The number of images to generate
@@ -128,30 +126,23 @@ export type PluginOptions = {
     countToGenerate: number,
 
     /**
-     * Options for OpenAI
+     * Prompt which will be suggested to user during image generation. You can use record fields with mustache brackets:
+     * E.g. 'Generate a photo of car {{ model }} from {{ brand }} in {{ color }} color of {{ year }} year'. For now plugin get's these fields from open create/edit form
+     * so they should be present in the form.
+     * 
+     * Reserved variables:
+     * - {{field}} - label of resource
+     * - {{resource}} - label of resource
      */
-    openAiOptions: {
-      /**
-       * The model to use, e.g. 'dall-e-3'
-       */
-      model: string,
-
-      /**
-       * The size of the image to generate, e.g. '1792x1024'
-       */
-      size: string,
-
-      /**
-       * The OpenAI API key
-       */
-      apiKey: string,
-    },
+    generationPrompt?: string,
 
     /**
-     * Fields of record to use for context. if supplied must be array of valid column names for resource
-     * where plugin is used.
+     * If you want to use some image as reference for generation, you can use this function to get the path to the image.
      */
-    fieldsForContext? : string[],
+    attachFiles?: ({ record, adminUser }: {
+      record: any,
+      adminUser: AdminUser,
+    }) => string[],
 
     
     /**
@@ -171,6 +162,8 @@ export type PluginOptions = {
        */
       errorMessage: string,
     },
+
+    
   }
 
 }

@@ -26,7 +26,7 @@
                 :title="$t('Prompt which will be passed to AI network')"
                 ></textarea>
 
-              <div class="flex items-center justify-center w-full relative">
+              <div class="flex flex-col items-center justify-center w-full relative">
                 <div 
                   v-if="loading"  
                   class=" absolute flex items-center justify-center w-full h-full z-50 bg-white/80 dark:bg-gray-900/80 rounded-lg"
@@ -36,13 +36,36 @@
                         <span class="sr-only">{{ $t('Loading...') }}</span>
                     </div>
                 </div>
+
+                <div v-if="loadingTimer" class="absolute pt-12 flex items-center justify-center w-full h-full z-50 bg-white/80 dark:bg-gray-900/80 rounded-lg">
+                  <div class="text-gray-800 dark:text-gray-100 text-lg font-semibold" 
+                    v-if="!historicalAverage"
+                  >
+                   {{ formatTime(loadingTimer) }} {{ $t('passed...') }} 
+                  </div>
+                  <div class="w-64" v-else>
+                    <ProgressBar
+                      class="absolute max-w-full"
+                      :currentValue="loadingTimer < historicalAverage ? loadingTimer : historicalAverage"
+                      :minValue="0"
+                      :maxValue="historicalAverage"
+                      :showValues="false"
+                      :progressFormatter="(value: number, percentage: number) => `${ formatTime(loadingTimer) } ( ${ Math.floor( (
+                        loadingTimer < historicalAverage ? loadingTimer : historicalAverage
+                      ) / historicalAverage * 100) }% )`"
+                    />
+                  </div>
+                </div>
+
                 
                 <div id="gallery" class="relative w-full" data-carousel="static">
                   <!-- Carousel wrapper -->
                   <div class="relative h-56 overflow-hidden rounded-lg md:h-72">
                       <!-- Item 1 -->
                       <div v-for="(img, index) in images" :key="index" class="hidden duration-700 ease-in-out" data-carousel-item>
-                          <img :src="img" class="absolute block max-w-full h-auto -translate-x-1/2 -translate-y-1/2 top-1/2 left-1/2" alt="">
+                          <img :src="img" class="absolute block max-w-full max-h-full -translate-x-1/2 -translate-y-1/2 top-1/2 left-1/2 object-cover" 
+                            :alt="`Generated image ${index + 1}`"
+                          />
                       </div>
                       
                       <div v-if="images.length === 0" class="flex items-center justify-center w-full h-full">
@@ -57,19 +80,31 @@
                   <!-- Slider controls -->
                   <button type="button" class="absolute top-0 start-0 z-30 flex items-center justify-center h-full px-4 cursor-pointer group focus:outline-none"
                     @click="slide(-1)"
+                    :disabled="images.length === 0"
                   >
-                      <span class="inline-flex items-center justify-center w-10 h-10 rounded-full bg-white/30 dark:bg-gray-800/30 group-hover:bg-white/50 dark:group-hover:bg-gray-800/60 group-focus:ring-4 group-focus:ring-white dark:group-focus:ring-gray-800/70 group-focus:outline-none">
-                          <svg class="w-4 h-4 text-white dark:text-gray-800 rtl:rotate-180" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 6 10">
+                      <span class="inline-flex items-center justify-center w-10 h-10 rounded-full bg-white/30 dark:bg-gray-800/30 group-hover:bg-white/50 dark:group-hover:bg-gray-800/60 group-focus:ring-4 group-focus:ring-white dark:group-focus:ring-gray-800/70 group-focus:outline-none ">
+                          <svg class="w-4 h-4 rtl:rotate-180" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 6 10"
+                            :class="{
+                              'text-gray-800 dark:text-gray-200': images.length > 0,
+                              'text-gray-200 dark:text-gray-800': images.length === 0
+                             }"
+                            >
                               <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 1 1 5l4 4"/>
                           </svg>
                           <span class="sr-only">{{ $t('Previous') }}</span>
                       </span>
                   </button>
-                  <button type="button" class="absolute top-0 end-0 z-30 flex items-center justify-center h-full px-4 cursor-pointer group focus:outline-none" 
+                  <button type="button" class="absolute top-0 end-0 z-30 flex items-center justify-center h-full px-4 cursor-pointer group focus:outline-none " 
+                    :disabled="images.length === 0"
                     @click="slide(1)"
                   >
-                      <span class="inline-flex items-center justify-center w-10 h-10 rounded-full bg-white/30 dark:bg-gray-800/30 group-hover:bg-white/50 dark:group-hover:bg-gray-800/60 group-focus:ring-4 group-focus:ring-white dark:group-focus:ring-gray-800/70 group-focus:outline-none">
-                          <svg class="w-4 h-4 text-white dark:text-gray-800 rtl:rotate-180" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 6 10">
+                      <span class="inline-flex items-center justify-center w-10 h-10 rounded-full bg-white/30 dark:bg-gray-800/30 group-hover:bg-white/50 dark:group-hover:bg-gray-800/60 group-focus:ring-4 group-focus:ring-white dark:group-focus:ring-gray-800/70 group-focus:outline-none ">
+                          <svg class="w-4 h-4 rtl:rotate-180" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 6 10"
+                            :class="{
+                              'text-gray-800 dark:text-gray-200': images.length > 0,
+                              'text-gray-200 dark:text-gray-800': images.length === 0
+                             }"
+                          >
                               <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m1 9 4-4-4-4"/>
                           </svg>
                           <span class="sr-only">{{ $t('Next') }}</span>
@@ -103,11 +138,12 @@
 
 <script setup lang="ts">
 
-import { ref, onMounted, nextTick } from 'vue'
+import { ref, onMounted, nextTick, Ref, h, computed } from 'vue'
 import { Carousel } from 'flowbite';
 import { callAdminForthApi } from '@/utils';
 import { useI18n } from 'vue-i18n';
 import adminforth from '@/adminforth';
+import { ProgressBar } from '@/afcl';
 
 const { t: $t } = useI18n();
 
@@ -127,22 +163,42 @@ function minifyField(field: string): string {
 const caurosel = ref(null);
 onMounted(() => {
   // Initialize carousel
-  let additionalContext = null;
-  if (props.meta.fieldsForContext) {
-    additionalContext = props.meta.fieldsForContext.filter((field: string) => props.record[field]).map((field: string) => {
-      return `${field}: ${minifyField(props.record[field])}`;
-    }).join('\n');
-  }
-
-  prompt.value = $t('Generate image for field "{field}" in {resource}. No text should be on image.', {
+  const context = {
     field: props.meta.pathColumnLabel,
     resource: props.meta.resourceLabel,
-  });
-  if (additionalContext) {
-    prompt.value += ` ${additionalContext}`;
+  }; 
+  let template = '';
+  if (props.meta.generationPrompt) {
+    template = props.meta.generationPrompt;
+  } else {
+    template = 'Generate image for field {{field}} in {{resource}}. No text should be on image.';
+  }
+  // iterate over all variables in template and replace them with their values from props.record[field]. 
+  // if field is not present in props.record[field] then replace it with empty string and drop warning
+  const regex = /{{(.*?)}}/g;
+  const matches = template.match(regex);
+  if (matches) {
+    matches.forEach((match) => {
+      const field = match.replace(/{{|}}/g, '').trim();
+      if (field in context) {
+        return;
+      } else if (field in props.record) {
+        context[field] = minifyField(props.record[field]);
+      } else {
+        adminforth.alert({
+          message: $t('Field {{field}} defined in template but not found in record', { field }),
+          variant: 'warning',
+          timeout: 15,
+        });
+      } 
+    });
   }
 
-})
+  prompt.value = template.replace(regex, (_, field) => {
+    return context[field.trim()] || '';
+  });
+
+});
 
 async function slide(direction: number) {
   if (!caurosel.value) return;
@@ -164,9 +220,23 @@ async function confirmImage() {
   const currentIndex = caurosel.value?.getActiveItem()?.position || 0;
   const img = images.value[currentIndex];
   // read  url to base64 and send it to the parent component
-  const imgBlob = await fetch(
-    `${import.meta.env.VITE_ADMINFORTH_PUBLIC_PATH || ''}/adminapi/v1/plugin/${props.meta.pluginInstanceId}/cors-proxy?url=${encodeURIComponent(img)}`
-  ).then(res => { return res.blob() });
+
+  let imgBlob;
+  if (img.startsWith('data:')) {
+    const base64 = img.split(',')[1];
+    const mimeType = img.split(';')[0].split(':')[1];
+    const byteCharacters = atob(base64);
+    const byteNumbers = new Array(byteCharacters.length);
+    for (let i = 0; i < byteCharacters.length; i++) {
+      byteNumbers[i] = byteCharacters.charCodeAt(i);
+    }
+    const byteArray = new Uint8Array(byteNumbers);
+    imgBlob = new Blob([byteArray], { type: mimeType });
+  } else {
+    imgBlob = await fetch(
+      `${import.meta.env.VITE_ADMINFORTH_PUBLIC_PATH || ''}/adminapi/v1/plugin/${props.meta.pluginInstanceId}/cors-proxy?url=${encodeURIComponent(img)}`
+    ).then(res => { return res.blob() });
+  }
 
   emit('uploadImage', imgBlob);
   emit('close');
@@ -174,17 +244,51 @@ async function confirmImage() {
   loading.value = false;
 }
 
+const loadingTimer: Ref<number | null> = ref(null);
+
+const historicalRuns: Ref<number[]> = ref([]);
+
+const historicalAverage: Ref<number | null> = computed(() => {
+  if (historicalRuns.value.length === 0) return null;
+  const sum = historicalRuns.value.reduce((a, b) => a + b, 0);
+  return Math.floor(sum / historicalRuns.value.length);
+});
+
+
+function formatTime(seconds: number): string {
+  const minutes = Math.floor(seconds / 60);
+  return `${minutes % 60}m ${Math.floor(seconds % 60)}s`;
+}
+
+
 async function generateImages() {
   loading.value = true;
+  loadingTimer.value = 0;
+  const start = Date.now();
+  const ticker = setInterval(() => {
+    const elapsed = (Date.now() - start) / 1000;
+    loadingTimer.value = elapsed;
+  }, 100);
   const currentIndex = caurosel.value?.getActiveItem()?.position || 0;
-  const resp = await callAdminForthApi({
-    path: `/plugin/${props.meta.pluginInstanceId}/generate_images`,
-    method: 'POST',
-    body: {
-      prompt: prompt.value,
-    },
-  });
+  
+  let resp;
+  try {
+    resp = await callAdminForthApi({
+      path: `/plugin/${props.meta.pluginInstanceId}/generate_images`,
+      method: 'POST',
+      body: {
+        prompt: prompt.value,
+        recordId: props.record[props.meta.recorPkFieldName]
+      },
+    });
+  } catch (e) {
+    console.error(e);
+  } finally {
+    historicalRuns.value.push(loadingTimer.value);
+    clearInterval(ticker);
+    loadingTimer.value = null;
 
+  }
   if (resp.error) {
     adminforth.alert({
       message: $t('Error: {error}', { error: JSON.stringify(resp.error) }), 
@@ -197,7 +301,7 @@ async function generateImages() {
 
   images.value = [
     ...images.value,
-    ...resp.images.map(im => im.data[0].url),
+    ...resp.images,
   ];
 
   // images.value = [
