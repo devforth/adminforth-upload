@@ -120,6 +120,12 @@ export type PluginOptions = {
 
 
     /**
+     * Fields for conetext which will be used to generate the image.
+     * If specified, the plugin will use fields from the record to provide additional context to the AI model.
+     */
+    fieldsForContext?: string[],
+
+    /**
      * The number of images to generate
      * in one request
      */
