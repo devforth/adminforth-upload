@@ -1,8 +1,8 @@
 
 <template>
   <!-- Main modal -->
-  <div tabindex="-1" class="overflow-y-auto overflow-x-hidden fixed top-0 right-0 left-0 bottom-0 z-50 flex justify-center items-center w-full md:inset-0 h-[calc(100%-1rem)] max-h-full bg-white bg-opacity-50 dark:bg-gray-900 dark:bg-opacity-50">
-    <div class="relative p-4 w-full max-w-2xl max-h-full ">
+  <div tabindex="-1" class="overflow-y-auto overflow-x-hidden fixed top-0 right-0 left-0 bottom-0 z-50 flex justify-center items-center w-full md:inset-0 h-full max-h-full bg-white bg-opacity-50 dark:bg-gray-900 dark:bg-opacity-50">
+    <div class="relative p-4 w-10/12 max-w-full max-h-full ">
         <!-- Modal content -->
         <div class="relative bg-white rounded-lg shadow-xl dark:bg-gray-700">
             <!-- Modal header -->
@@ -66,7 +66,7 @@
                 
                 <div id="gallery" class="relative w-full" data-carousel="static">
                   <!-- Carousel wrapper -->
-                  <div class="relative h-56 overflow-hidden rounded-lg md:h-72">
+                  <div class="relative h-56 overflow-hidden rounded-lg md:h-[calc(100vh-350px)]">
                       <!-- Item 1 -->
                       <div v-for="(img, index) in images" :key="index" class="hidden duration-700 ease-in-out" data-carousel-item>
                           <img :src="img" class="absolute block max-w-full max-h-full -translate-x-1/2 -translate-y-1/2 top-1/2 left-1/2 object-cover" 
