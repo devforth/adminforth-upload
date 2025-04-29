@@ -50,7 +50,7 @@
                       :minValue="0"
                       :maxValue="historicalAverage"
                       :showValues="false"
-                      :progressFormatter="(value: number, percentage: number) => `${ formatTime(loadingTimer) } ( ${ Math.floor( (
+                      :progressFormatter="(value: number, percentage: number) => `${ formatTime(loadingTimer) } ( ~ ${ Math.floor( (
                         loadingTimer < historicalAverage ? loadingTimer : historicalAverage
                       ) / historicalAverage * 100) }% )`"
                     />
@@ -252,15 +252,10 @@ async function confirmImage() {
 
 const loadingTimer: Ref<number | null> = ref(null);
 
-const historicalRuns: Ref<number[]> = ref([]);
 
 const errorMessage: Ref<string | null> = ref(null);
 
-const historicalAverage: Ref<number | null> = computed(() => {
-  if (historicalRuns.value.length === 0) return null;
-  const sum = historicalRuns.value.reduce((a, b) => a + b, 0);
-  return Math.floor(sum / historicalRuns.value.length);
-});
+const historicalAverage: Ref<number | null> = ref(null);
 
 
 function formatTime(seconds: number): string {
@@ -268,6 +263,14 @@ function formatTime(seconds: number): string {
   return `${minutes % 60}m ${Math.floor(seconds % 60)}s`;
 }
 
+
+async function getHistoricalAverage() {
+  const resp = await callAdminForthApi({
+    path: `/plugin/${props.meta.pluginInstanceId}/averageDuration`,
+    method: 'GET',
+  });
+  historicalAverage.value = resp?.averageDuration || null;
+}
 
 async function generateImages() {
   errorMessage.value = null;
@@ -279,7 +282,8 @@ async function generateImages() {
     loadingTimer.value = elapsed;
   }, 100);
   const currentIndex = caurosel.value?.getActiveItem()?.position || 0;
-  
+
+  await getHistoricalAverage();
   let resp = null;
   let error = null;
   try {
@@ -294,7 +298,6 @@ async function generateImages() {
   } catch (e) {
     console.error(e);
   } finally {
-    historicalRuns.value.push(loadingTimer.value);
     clearInterval(ticker);
     loadingTimer.value = null;
     loading.value = false;
@@ -330,12 +333,17 @@ async function generateImages() {
   // ];
   await nextTick();
 
+
   caurosel.value = new Carousel(
     document.getElementById('gallery'), 
-    images.value.map((img, index) => ({
-      el: document.getElementById('gallery').querySelector(`[data-carousel-item]:nth-child(${index + 1})`),
-      position: index,
-    })),
+    images.value.map((img, index) => {
+      console.log('mapping image', img, index);
+      return {
+        image: img,
+        el: document.getElementById('gallery').querySelector(`[data-carousel-item]:nth-child(${index + 1})`),
+        position: index,
+      };
+    }),
     {
       internal: 0,
       defaultPosition: currentIndex,
@@ -345,6 +353,7 @@ async function generateImages() {
     }
   );
   await nextTick();
+  
   loading.value = false;
 }
 

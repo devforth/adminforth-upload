@@ -13,9 +13,16 @@ export default class UploadPlugin extends AdminForthPlugin {
 
   adminforth!: IAdminForth;
 
+  totalCalls: number;
+  totalDuration: number;
+
   constructor(options: PluginOptions) {
     super(options, import.meta.url);
     this.options = options;
+
+    // for calcualting average time
+    this.totalCalls = 0;
+    this.totalDuration = 0;
   }
 
   instanceUniqueRepresentation(pluginOptions: any) : string {
@@ -390,8 +397,21 @@ getBucketLifecycleConfiguration on bucket ${this.options.s3Bucket} in region ${t
     // called here because modifyResourceConfig can be called in build time where there is no environment and AWS secrets
     this.setupLifecycleRule();
   }
+  
 
   setupEndpoints(server: IHttpServer) {
+    server.endpoint({
+      method: 'GET',
+      path: `/plugin/${this.pluginInstanceId}/averageDuration`,
+      handler: async () => {
+        return {
+          totalCalls: this.totalCalls,
+          totalDuration: this.totalDuration,
+          averageDuration: this.totalCalls ? this.totalDuration / this.totalCalls : null,
+        };
+      }
+    });
+
     server.endpoint({
       method: 'POST',
       path: `/plugin/${this.pluginInstanceId}/get_s3_upload_url`,
@@ -527,6 +547,7 @@ getBucketLifecycleConfiguration on bucket ${this.options.s3Bucket} in region ${t
               await new Promise((resolve) => setTimeout(resolve, 2000));
               return `https://picsum.photos/200/300?random=${Math.floor(Math.random() * 1000)}`;
             }
+            const start = +new Date();
             const resp = await this.options.generation.adapter.generate(
               {
                 prompt,
@@ -541,6 +562,9 @@ getBucketLifecycleConfiguration on bucket ${this.options.s3Bucket} in region ${t
               error = resp.error;
               return;
             }
+
+            this.totalCalls++;
+            this.totalDuration += (+new Date() - start) / 1000;
             
             return resp.imageURLs[0]
 
