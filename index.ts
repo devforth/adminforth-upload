@@ -531,6 +531,7 @@ getBucketLifecycleConfiguration on bucket ${this.options.s3Bucket} in region ${t
                 prompt,
                 inputFiles: attachmentFiles,
                 n: 1,
+                size: this.options.generation.outputSize,
               }
             )
 

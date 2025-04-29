@@ -118,6 +118,10 @@ export type PluginOptions = {
   generation?: {
     adapter: ImageGenerationAdapter,
 
+    /**
+     * The size of the generated image.
+     */
+    outputSize?: string,
 
     /**
      * Fields for conetext which will be used to generate the image.
