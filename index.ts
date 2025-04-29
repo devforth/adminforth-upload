@@ -165,15 +165,17 @@ getBucketLifecycleConfiguration on bucket ${this.options.s3Bucket} in region ${t
     const pathColumn = resourceConfig.columns[pathColumnIndex];
     
     // add preview column to list
-    resourceConfig.columns[pathColumnIndex].components.list = {
-      file: this.componentPath('preview.vue'),
-      meta: pluginFrontendOptions,
-    };
+    if (this.options.preview?.usePreviewComponents !== false) {
+      resourceConfig.columns[pathColumnIndex].components.list = {
+        file: this.componentPath('preview.vue'),
+        meta: pluginFrontendOptions,
+      };
 
-    resourceConfig.columns[pathColumnIndex].components.show = {
-      file: this.componentPath('preview.vue'),
-      meta: pluginFrontendOptions,
-    };
+      resourceConfig.columns[pathColumnIndex].components.show = {
+        file: this.componentPath('preview.vue'),
+        meta: pluginFrontendOptions,
+      };
+    }
 
     // insert virtual column after path column if it is not already there
     const virtualColumnIndex = resourceConfig.columns.findIndex((column: any) => column.name === virtualColumn.name);

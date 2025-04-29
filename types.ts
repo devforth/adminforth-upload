@@ -66,6 +66,11 @@ export type PluginOptions = {
   preview?: {
 
     /**
+     * Whether to use preview components provided by the plugin. BY default true
+     */
+    usePreviewComponents?: boolean,
+
+    /**
      * Maximum width of the preview image
      */
     maxWidth?: string,
