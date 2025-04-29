@@ -486,7 +486,6 @@ getBucketLifecycleConfiguration on bucket ${this.options.s3Bucket} in region ${t
       path: `/plugin/${this.pluginInstanceId}/generate_images`,
       handler: async ({ body, adminUser, headers }) => {
         const { prompt, recordId } = body;
-
         if (this.options.generation.rateLimit?.limit) {
           // rate limit
           const { error } = RateLimiter.checkRateLimit(

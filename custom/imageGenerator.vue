@@ -57,6 +57,12 @@
                   </div>
                 </div>
 
+                <div v-if="errorMessage" class="absolute flex items-center justify-center w-full h-full z-50 bg-white/80 dark:bg-gray-900/80 rounded-lg">
+                  <div class="pt-20 text-red-500 dark:text-red-400 text-lg font-semibold">
+                    {{ errorMessage }}
+                  </div>
+                </div>
+
                 
                 <div id="gallery" class="relative w-full" data-carousel="static">
                   <!-- Carousel wrapper -->
@@ -118,7 +124,7 @@
             <!-- Modal footer -->
             <div class="flex items-center p-4 md:p-5 border-t border-gray-200 rounded-b dark:border-gray-600">
                 <button type="button" @click="confirmImage"
-                  :disabled="loading"
+                  :disabled="loading || images.length === 0"
                   class="text-white bg-blue-700 hover:bg-blue-800 focus:ring-4 focus:outline-none focus:ring-blue-300 font-medium rounded-lg text-sm px-5 py-2.5 text-center 
                   dark:bg-blue-600 dark:hover:bg-blue-700 dark:focus:ring-blue-800 
                   disabled:opacity-50 disabled:cursor-not-allowed"
@@ -248,6 +254,8 @@ const loadingTimer: Ref<number | null> = ref(null);
 
 const historicalRuns: Ref<number[]> = ref([]);
 
+const errorMessage: Ref<string | null> = ref(null);
+
 const historicalAverage: Ref<number | null> = computed(() => {
   if (historicalRuns.value.length === 0) return null;
   const sum = historicalRuns.value.reduce((a, b) => a + b, 0);
@@ -262,6 +270,7 @@ function formatTime(seconds: number): string {
 
 
 async function generateImages() {
+  errorMessage.value = null;
   loading.value = true;
   loadingTimer.value = 0;
   const start = Date.now();
@@ -271,7 +280,8 @@ async function generateImages() {
   }, 100);
   const currentIndex = caurosel.value?.getActiveItem()?.position || 0;
   
-  let resp;
+  let resp = null;
+  let error = null;
   try {
     resp = await callAdminForthApi({
       path: `/plugin/${props.meta.pluginInstanceId}/generate_images`,
@@ -287,15 +297,25 @@ async function generateImages() {
     historicalRuns.value.push(loadingTimer.value);
     clearInterval(ticker);
     loadingTimer.value = null;
-
-  }
-  if (resp.error) {
-    adminforth.alert({
-      message: $t('Error: {error}', { error: JSON.stringify(resp.error) }), 
-      variant: 'danger',
-      timeout: 15,
-    });
     loading.value = false;
+  }
+  if (resp?.error) {
+    error = resp.error;
+  }
+  if (!resp) {
+    error = $t('Error generating images, something went wrong');
+  }
+
+  if (error) {
+    if (images.value.length === 0) {
+      errorMessage.value = error;
+    } else {
+      adminforth.alert({
+        message: error,
+        variant: 'danger',
+        timeout: 'unlimited',
+      });
+    }
     return;
   }
 
