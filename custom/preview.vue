@@ -7,7 +7,6 @@
         class="rounded-md" 
         :style="[maxWidth, minWidth]"
         ref="img"
-        data-zoomable
         @click.stop="zoom.open()" 
       />
       <video 
