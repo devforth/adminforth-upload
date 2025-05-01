@@ -1,7 +1,5 @@
 
 import { PluginOptions } from './types.js';
-import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
-import { ExpirationStatus, GetObjectCommand, ObjectCannedACL, PutObjectCommand, S3 } from '@aws-sdk/client-s3';
 import { AdminForthPlugin, AdminForthResourceColumn, AdminForthResource, Filters, IAdminForth, IHttpServer, suggestIfTypo } from "adminforth";
 import { Readable } from "stream";
 import { RateLimiter } from "adminforth";
@@ -30,76 +28,15 @@ export default class UploadPlugin extends AdminForthPlugin {
   }
 
   async setupLifecycleRule() {
-    // check that lifecyle rule "adminforth-unused-cleaner" exists
-    const CLEANUP_RULE_ID = 'adminforth-unused-cleaner';
-
-    const s3 = new S3({
-      credentials: {
-        accessKeyId: this.options.s3AccessKeyId,
-        secretAccessKey: this.options.s3SecretAccessKey,
-      },
-      region: this.options.s3Region,
-    });
-   
-    // check bucket exists
-    const bucketExists = s3.headBucket({ Bucket: this.options.s3Bucket })
-    if (!bucketExists) {
-      throw new Error(`Bucket ${this.options.s3Bucket} does not exist`);
-    }
-
-    // check that lifecycle rule exists
-    let ruleExists: boolean = false;
-
-    try {
-        const lifecycleConfig: any = await s3.getBucketLifecycleConfiguration({ Bucket: this.options.s3Bucket });
-        ruleExists = lifecycleConfig.Rules.some((rule: any) => rule.ID === CLEANUP_RULE_ID);
-    } catch (e: any) {
-      if (e.name !== 'NoSuchLifecycleConfiguration') {
-        console.error(`⛔ Error checking lifecycle configuration, please check keys have permissions to 
-getBucketLifecycleConfiguration on bucket ${this.options.s3Bucket} in region ${this.options.s3Region}. Exception:`, e);
-        throw e;
-      } else {
-        ruleExists = false;
-      }
-    }
-
-    if (!ruleExists) {
-      // create
-      // rule deletes object has tag adminforth-candidate-for-cleanup = true after 2 days
-      const params = {
-        Bucket: this.options.s3Bucket,
-        LifecycleConfiguration: {
-          Rules: [
-            {
-              ID: CLEANUP_RULE_ID,
-              Status: ExpirationStatus.Enabled,
-              Filter: {
-                Tag: {
-                  Key: ADMINFORTH_NOT_YET_USED_TAG,
-                  Value: 'true'
-                }
-              },
-              Expiration: {
-                Days: 2
-              }
-            }
-          ]
-        }
-      };
-
-      await s3.putBucketLifecycleConfiguration(params);
-    }
+    this.options.storage.adapter.setupLifecycle();
   }
 
-  async genPreviewUrl(record: any, s3: S3) {
+  async genPreviewUrl(record: any) {
     if (this.options.preview?.previewUrl) {
-      record[`previewUrl_${this.pluginInstanceId}`] = this.options.preview.previewUrl({ s3Path: record[this.options.pathColumnName] });
+      record[`previewUrl_${this.pluginInstanceId}`] = this.options.preview.previewUrl({ filePath: record[this.options.pathColumnName] });
       return;
     }
-    const previewUrl = await await getSignedUrl(s3, new GetObjectCommand({
-      Bucket: this.options.s3Bucket,
-      Key: record[this.options.pathColumnName],
-    }));
+    const previewUrl = await this.options.storage.adapter.getDownloadUrl(record[this.options.pathColumnName], 1800);
 
     record[`previewUrl_${this.pluginInstanceId}`] = previewUrl;
   }
@@ -222,23 +159,9 @@ getBucketLifecycleConfiguration on bucket ${this.options.s3Bucket} in region ${t
       process.env.HEAVY_DEBUG && console.log('💾💾  after save ', record?.id);
       
       if (record[pathColumnName]) {
-        const s3 = new S3({
-          credentials: {
-            accessKeyId: this.options.s3AccessKeyId,
-            secretAccessKey: this.options.s3SecretAccessKey,
-          },
-
-          region: this.options.s3Region,
-        });
         process.env.HEAVY_DEBUG && console.log('🪥🪥 remove ObjectTagging', record[pathColumnName]);
         // let it crash if it fails: this is a new file which just was uploaded.
-        await s3.putObjectTagging({
-          Bucket: this.options.s3Bucket,
-          Key: record[pathColumnName],
-          Tagging: {
-            TagSet: []
-          }
-        });
+        await this.options.storage.adapter.markKeyForNotDeletation(record[pathColumnName]);
       }
       return { ok: true };
     });
@@ -255,16 +178,7 @@ getBucketLifecycleConfiguration on bucket ${this.options.s3Bucket} in region ${t
           return { ok: true };
         }
         if (record[pathColumnName]) {
-          const s3 = new S3({
-            credentials: {
-              accessKeyId: this.options.s3AccessKeyId,
-              secretAccessKey: this.options.s3SecretAccessKey,
-            },
-
-            region: this.options.s3Region,
-          });
-
-          await this.genPreviewUrl(record, s3);
+          await this.genPreviewUrl(record)
         }
         return { ok: true };
       });
@@ -275,18 +189,9 @@ getBucketLifecycleConfiguration on bucket ${this.options.s3Bucket} in region ${t
 
     if (pathColumn.showIn.list) {
       resourceConfig.hooks.list.afterDatasourceResponse.push(async ({ response }: { response: any }) => {
-        const s3 = new S3({
-          credentials: {
-            accessKeyId: this.options.s3AccessKeyId,
-            secretAccessKey: this.options.s3SecretAccessKey,
-          },
-
-          region: this.options.s3Region,
-        });
-  
        await Promise.all(response.map(async (record: any) => {
           if (record[this.options.pathColumnName]) {
-            await this.genPreviewUrl(record, s3);
+            await this.genPreviewUrl(record)
           }
         }));
         return { ok: true };
@@ -298,28 +203,8 @@ getBucketLifecycleConfiguration on bucket ${this.options.s3Bucket} in region ${t
     // add delete hook which sets tag adminforth-candidate-for-cleanup to true
     resourceConfig.hooks.delete.afterSave.push(async ({ record }: { record: any }) => {
       if (record[pathColumnName]) {
-        const s3 = new S3({
-          credentials: {
-            accessKeyId: this.options.s3AccessKeyId,
-            secretAccessKey: this.options.s3SecretAccessKey,
-          },
-
-          region: this.options.s3Region,
-        });
-
         try {
-          await s3.putObjectTagging({
-            Bucket: this.options.s3Bucket,
-            Key: record[pathColumnName],
-            Tagging: {
-              TagSet: [
-                {
-                  Key: ADMINFORTH_NOT_YET_USED_TAG,
-                  Value: 'true'
-                }
-              ]
-            }
-          });
+          await this.options.storage.adapter.markKeyForDeletation(record[pathColumnName]);
         } catch (e) {
           // file might be e.g. already deleted, so we catch error
           console.error(`Error setting tag ${ADMINFORTH_NOT_YET_USED_TAG} to true for object ${record[pathColumnName]}. File will not be auto-cleaned up`, e);
@@ -345,30 +230,10 @@ getBucketLifecycleConfiguration on bucket ${this.options.s3Bucket} in region ${t
     resourceConfig.hooks.edit.afterSave.push(async ({ updates, oldRecord }: { updates: any, oldRecord: any }) => {
 
       if (updates[virtualColumn.name] || updates[virtualColumn.name] === null) {
-        const s3 = new S3({
-          credentials: {
-            accessKeyId: this.options.s3AccessKeyId,
-            secretAccessKey: this.options.s3SecretAccessKey,
-          },
-
-          region: this.options.s3Region,
-        });
-
         if (oldRecord[pathColumnName]) {
           // put tag to delete old file
           try {
-            await s3.putObjectTagging({
-              Bucket: this.options.s3Bucket,
-              Key: oldRecord[pathColumnName],
-              Tagging: {
-                TagSet: [
-                  {
-                    Key: ADMINFORTH_NOT_YET_USED_TAG,
-                    Value: 'true'
-                  }
-                ]
-              }
-            });
+            await this.options.storage.adapter.markKeyForDeletation(oldRecord[pathColumnName]);
           } catch (e) {
             // file might be e.g. already deleted, so we catch error
             console.error(`Error setting tag ${ADMINFORTH_NOT_YET_USED_TAG} to true for object ${oldRecord[pathColumnName]}. File will not be auto-cleaned up`, e);
@@ -377,13 +242,7 @@ getBucketLifecycleConfiguration on bucket ${this.options.s3Bucket} in region ${t
         if (updates[virtualColumn.name] !== null) {
           // remove tag from new file
           // in this case we let it crash if it fails: this is a new file which just was uploaded. 
-          await s3.putObjectTagging({
-            Bucket: this.options.s3Bucket,
-            Key: updates[pathColumnName],
-            Tagging: {
-              TagSet: []
-            }
-          });
+          await  this.options.storage.adapter.markKeyForNotDeletation(updates[pathColumnName]);
         }
       }
       return { ok: true };
@@ -414,7 +273,7 @@ getBucketLifecycleConfiguration on bucket ${this.options.s3Bucket} in region ${t
 
     server.endpoint({
       method: 'POST',
-      path: `/plugin/${this.pluginInstanceId}/get_s3_upload_url`,
+      path: `/plugin/${this.pluginInstanceId}/get_file_upload_url`,
       handler: async ({ body }) => {
         const { originalFilename, contentType, size, originalExtension, recordPk } = body;
 
@@ -433,49 +292,23 @@ getBucketLifecycleConfiguration on bucket ${this.options.s3Bucket} in region ${t
           )
         }
 
-        const s3Path: string = this.options.s3Path({ originalFilename, originalExtension, contentType, record });
-        if (s3Path.startsWith('/')) {
+        const filePath: string = this.options.filePath({ originalFilename, originalExtension, contentType, record });
+        if (filePath.startsWith('/')) {
           throw new Error('s3Path should not start with /, please adjust s3path function to not return / at the start of the path');
         }
-        const s3 = new S3({
-          credentials: {
-            accessKeyId: this.options.s3AccessKeyId,
-            secretAccessKey: this.options.s3SecretAccessKey,
-          },
-
-          region: this.options.s3Region,
-        });
-
         const tagline = `${ADMINFORTH_NOT_YET_USED_TAG}=true`;
-        const params = {
-          Bucket: this.options.s3Bucket,
-          Key: s3Path,
-          ContentType: contentType,
-          ACL: (this.options.s3ACL || 'private') as  ObjectCannedACL,
-          Tagging: tagline,
-        };
-
-        const uploadUrl = await await getSignedUrl(s3, new PutObjectCommand(params), {
-          expiresIn: 1800,
-          unhoistableHeaders: new Set(['x-amz-tagging']),
-        });
-
+        const { uploadUrl, uploadExtraParams } = await this.options.storage.adapter.getUploadSignedUrl(filePath, contentType, 1800);
         let previewUrl;
         if (this.options.preview?.previewUrl) {
-          previewUrl = this.options.preview.previewUrl({ s3Path });
-        } else if (this.options.s3ACL === 'public-read') {
-          previewUrl = `https://${this.options.s3Bucket}.s3.${this.options.s3Region}.amazonaws.com/${s3Path}`;
+          previewUrl = this.options.preview.previewUrl({ filePath });
         } else {
-          previewUrl = await getSignedUrl(s3, new GetObjectCommand({
-            Bucket: this.options.s3Bucket,
-            Key: s3Path,
-          }));
+          previewUrl = await this.options.storage.adapter.getDownloadUrl(filePath, 1800);
         }
         
         return {
           uploadUrl,
-          s3Path,
-          tagline,
+          filePath,
+          uploadExtraParams,
           previewUrl,
         };
       }
