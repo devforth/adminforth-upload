@@ -296,7 +296,6 @@ export default class UploadPlugin extends AdminForthPlugin {
         if (filePath.startsWith('/')) {
           throw new Error('s3Path should not start with /, please adjust s3path function to not return / at the start of the path');
         }
-        const tagline = `${ADMINFORTH_NOT_YET_USED_TAG}=true`;
         const { uploadUrl, uploadExtraParams } = await this.options.storage.adapter.getUploadSignedUrl(filePath, contentType, 1800);
         let previewUrl;
         if (this.options.preview?.previewUrl) {
