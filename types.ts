@@ -1,4 +1,4 @@
-import { AdminUser, ImageGenerationAdapter } from "adminforth";
+import { AdminUser, ImageGenerationAdapter, StorageAdapter } from "adminforth";
 
 export type PluginOptions = {
 
@@ -19,32 +19,6 @@ export type PluginOptions = {
   maxFileSize?: number;
 
   /**
-   * S3 bucket name where we will upload the files, e.g. 'my-bucket'
-   */
-  s3Bucket: string,
-
-  /**
-   * S3 region, e.g. 'us-east-1'
-   */
-  s3Region: string,
-
-  /**
-   * S3 access key id
-   */
-  s3AccessKeyId: string,
-
-  /**
-   * S3 secret access key
-   */
-  s3SecretAccessKey: string,
-
-  /**
-   * ACL which will be set to uploaded file, e.g. 'public-read'.
-   * If you want to use 'public-read', it is your responsibility to set the "ACL Enabled" to true in the S3 bucket policy and Uncheck "Block all public access" in the bucket settings.
-   */
-  s3ACL?: string,
-
-  /**
    * The path where the file will be uploaded to the S3 bucket, same path will be stored in the database
    * in the column specified in {@link pathColumnName}
    * 
@@ -55,7 +29,7 @@ export type PluginOptions = {
    * ```
    * 
    */
-  s3Path: ({originalFilename, originalExtension, contentType, record }: {
+  filePath: ({originalFilename, originalExtension, contentType, record }: {
     originalFilename: string,
     originalExtension: string,
     contentType: string,
@@ -113,7 +87,7 @@ export type PluginOptions = {
      * ```
      * 
      */ 
-    previewUrl?: ({s3Path}) => string,
+    previewUrl?: ({filePath}) => string,
   }
 
 
@@ -179,6 +153,14 @@ export type PluginOptions = {
     },
 
     
+  }
+
+  storage?: {
+    /**
+     * The adapter used to store the files.
+     * For now only S3 adapter is supported.
+     */
+    adapter: StorageAdapter,
   }
 
 }

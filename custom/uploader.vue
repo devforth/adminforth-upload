@@ -229,8 +229,8 @@ const onFileChange = async (e) => {
       reader.readAsDataURL(file);
     }
     
-    const { uploadUrl, tagline, s3Path, error } = await callAdminForthApi({
-        path: `/plugin/${props.meta.pluginInstanceId}/get_s3_upload_url`,
+    const { uploadUrl, uploadExtraParams, filePath, error } = await callAdminForthApi({
+        path: `/plugin/${props.meta.pluginInstanceId}/get_file_upload_url`,
         method: 'POST',
         body: {
           originalFilename: nameNoExtension,
@@ -266,7 +266,9 @@ const onFileChange = async (e) => {
       });
       xhr.open('PUT', uploadUrl, true);
       xhr.setRequestHeader('Content-Type', type);
-      xhr.setRequestHeader('x-amz-tagging', tagline);
+      uploadExtraParams && Object.entries(uploadExtraParams).forEach(([key, value]: [string, string]) => {
+        xhr.setRequestHeader(key, value);
+      })
       xhr.send(file);
     });
     if (!success) {
@@ -284,7 +286,7 @@ const onFileChange = async (e) => {
       return;
     }
     uploaded.value = true;
-    emit('update:value', s3Path);
+    emit('update:value', filePath);
   } catch (error) {
     console.error('Error uploading file:', error);
     adminforth.alert({
