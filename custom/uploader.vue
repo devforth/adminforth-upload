@@ -273,7 +273,7 @@ const onFileChange = async (e) => {
     });
     if (!success) {
       adminforth.alert({
-        messageHtml: `<div>${t('Sorry but the file was not uploaded because of S3 Request Error:')}</div>
+        messageHtml: `<div>${t('Sorry but the file was not uploaded because of internal storage Request Error:')}</div>
         <pre style="white-space: pre-wrap; word-wrap: break-word; overflow-wrap: break-word; max-width: 100%;">${
           xhr.responseText.replace(/</g, '&lt;').replace(/>/g, '&gt;')
         }</pre>`,

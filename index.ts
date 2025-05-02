@@ -14,6 +14,8 @@ export default class UploadPlugin extends AdminForthPlugin {
   totalCalls: number;
   totalDuration: number;
 
+  resourceConfig: AdminForthResource;
+
   constructor(options: PluginOptions) {
     super(options, import.meta.url);
     this.options = options;
@@ -28,7 +30,8 @@ export default class UploadPlugin extends AdminForthPlugin {
   }
 
   async setupLifecycleRule() {
-    this.options.storageAdapter.setupLifecycle();
+    const adapterUserUniqueRepresentation = `${this.resourceConfig.resourceId}-${this.pluginInstanceId}`;
+    this.options.storageAdapter.setupLifecycle(adapterUserUniqueRepresentation);
   }
 
   async genPreviewUrl(record: any) {
@@ -43,6 +46,7 @@ export default class UploadPlugin extends AdminForthPlugin {
 
   async modifyResourceConfig(adminforth: IAdminForth, resourceConfig: AdminForthResource) {
     super.modifyResourceConfig(adminforth, resourceConfig);
+    this.resourceConfig = resourceConfig;
     // after column to store the path of the uploaded file, add new VirtualColumn,
     // show only in edit and create views
     // use component uploader.vue
