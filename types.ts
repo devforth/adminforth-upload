@@ -155,12 +155,10 @@ export type PluginOptions = {
     
   }
 
-  storage?: {
-    /**
-     * The adapter used to store the files.
-     * For now only S3 adapter is supported.
-     */
-    adapter: StorageAdapter,
-  }
-
+  /**
+   * The adapter used to store the files.
+   * For now only S3 adapter is supported.
+   */
+    
+  storageAdapter: StorageAdapter,
 }

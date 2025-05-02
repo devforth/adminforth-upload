@@ -28,7 +28,7 @@ export default class UploadPlugin extends AdminForthPlugin {
   }
 
   async setupLifecycleRule() {
-    this.options.storage.adapter.setupLifecycle();
+    this.options.storageAdapter.setupLifecycle();
   }
 
   async genPreviewUrl(record: any) {
@@ -36,7 +36,7 @@ export default class UploadPlugin extends AdminForthPlugin {
       record[`previewUrl_${this.pluginInstanceId}`] = this.options.preview.previewUrl({ filePath: record[this.options.pathColumnName] });
       return;
     }
-    const previewUrl = await this.options.storage.adapter.getDownloadUrl(record[this.options.pathColumnName], 1800);
+    const previewUrl = await this.options.storageAdapter.getDownloadUrl(record[this.options.pathColumnName], 1800);
 
     record[`previewUrl_${this.pluginInstanceId}`] = previewUrl;
   }
@@ -161,7 +161,7 @@ export default class UploadPlugin extends AdminForthPlugin {
       if (record[pathColumnName]) {
         process.env.HEAVY_DEBUG && console.log('🪥🪥 remove ObjectTagging', record[pathColumnName]);
         // let it crash if it fails: this is a new file which just was uploaded.
-        await this.options.storage.adapter.markKeyForNotDeletation(record[pathColumnName]);
+        await this.options.storageAdapter.markKeyForNotDeletation(record[pathColumnName]);
       }
       return { ok: true };
     });
@@ -204,7 +204,7 @@ export default class UploadPlugin extends AdminForthPlugin {
     resourceConfig.hooks.delete.afterSave.push(async ({ record }: { record: any }) => {
       if (record[pathColumnName]) {
         try {
-          await this.options.storage.adapter.markKeyForDeletation(record[pathColumnName]);
+          await this.options.storageAdapter.markKeyForDeletation(record[pathColumnName]);
         } catch (e) {
           // file might be e.g. already deleted, so we catch error
           console.error(`Error setting tag ${ADMINFORTH_NOT_YET_USED_TAG} to true for object ${record[pathColumnName]}. File will not be auto-cleaned up`, e);
@@ -233,7 +233,7 @@ export default class UploadPlugin extends AdminForthPlugin {
         if (oldRecord[pathColumnName]) {
           // put tag to delete old file
           try {
-            await this.options.storage.adapter.markKeyForDeletation(oldRecord[pathColumnName]);
+            await this.options.storageAdapter.markKeyForDeletation(oldRecord[pathColumnName]);
           } catch (e) {
             // file might be e.g. already deleted, so we catch error
             console.error(`Error setting tag ${ADMINFORTH_NOT_YET_USED_TAG} to true for object ${oldRecord[pathColumnName]}. File will not be auto-cleaned up`, e);
@@ -242,7 +242,7 @@ export default class UploadPlugin extends AdminForthPlugin {
         if (updates[virtualColumn.name] !== null) {
           // remove tag from new file
           // in this case we let it crash if it fails: this is a new file which just was uploaded. 
-          await  this.options.storage.adapter.markKeyForNotDeletation(updates[pathColumnName]);
+          await  this.options.storageAdapter.markKeyForNotDeletation(updates[pathColumnName]);
         }
       }
       return { ok: true };
@@ -296,12 +296,12 @@ export default class UploadPlugin extends AdminForthPlugin {
         if (filePath.startsWith('/')) {
           throw new Error('s3Path should not start with /, please adjust s3path function to not return / at the start of the path');
         }
-        const { uploadUrl, uploadExtraParams } = await this.options.storage.adapter.getUploadSignedUrl(filePath, contentType, 1800);
+        const { uploadUrl, uploadExtraParams } = await this.options.storageAdapter.getUploadSignedUrl(filePath, contentType, 1800);
         let previewUrl;
         if (this.options.preview?.previewUrl) {
           previewUrl = this.options.preview.previewUrl({ filePath });
         } else {
-          previewUrl = await this.options.storage.adapter.getDownloadUrl(filePath, 1800);
+          previewUrl = await this.options.storageAdapter.getDownloadUrl(filePath, 1800);
         }
         
         return {
