@@ -141,7 +141,8 @@ function guessContentType(url) {
 }
 
 
-watch([url, contentType], async ([url, contentType]) => {
+watch([contentType], async ([contentType]) => {
+  // since content type might change after true guessing (HEAD request might be slow) we need to try initializing zoom again
   if (zoom.value) {
     zoom.value.detach();
   }
