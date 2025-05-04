@@ -71,6 +71,30 @@ const props = defineProps({
   meta: Object,
 })
 
+const trueContentType  = ref(null);
+
+onMounted(async () => {
+   // try to get HEAD request
+   try {
+    const response = await fetch(url.value, {
+      method: 'HEAD',
+    });
+    const ct = response.headers.get('Content-Type');
+    if (ct) {
+      trueContentType.value = ct;
+    }
+  } catch (e) {
+    console.error('fetch error for getting content type, please check CORS allowed for HEAD request', e);
+  }
+});
+
+const contentType = computed(() => {
+  if (trueContentType.value) {
+    return trueContentType.value;
+  }
+  return guessedContentType.value;
+});
+
 const route = useRoute();
 const url = computed(() => {
   return props.record[`previewUrl_${props.meta.pluginInstanceId}`];
@@ -95,11 +119,11 @@ const minWidth = computed(() => {
 });
 // since we have no way to know the content type of the file, we will try to guess it from extension
 // for better experience probably we should check whether user saves content type in the database and use it here
-const contentType = computed(() => {
+const guessedContentType = computed(() => {
   if (!url.value) {
     return null;
   }
-  const u = new URL(url.value);
+  const u = new URL(url.value, url.value.startsWith('http') ? undefined : location.origin);
   return guessContentType(u.pathname);
 });
 
