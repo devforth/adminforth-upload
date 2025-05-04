@@ -58,7 +58,7 @@
   } */
 </style>
 <script setup>
-import { ref, computed , onMounted, watch} from 'vue'
+import { ref, computed , onMounted, watch, nextTick} from 'vue'
 import mediumZoom from 'medium-zoom'
 import { useRoute } from 'vue-router'
 
@@ -141,14 +141,17 @@ function guessContentType(url) {
 }
 
 
-onMounted(async () => {
-  
-  if (contentType.value?.startsWith('image')) {
+watch([url, contentType], async ([url, contentType]) => {
+  if (zoom.value) {
+    zoom.value.detach();
+  }
+  await nextTick();
+  if (contentType?.startsWith('image')) {
     zoom.value = mediumZoom(img.value, {
       margin: 24,
     });
   }
 
-});
+}, { immediate: true });
 
 </script>
