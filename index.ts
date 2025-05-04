@@ -365,7 +365,7 @@ export default class UploadPlugin extends AdminForthPlugin {
             return { error: `Record with id ${recordId} not found` };
           }
           
-          attachmentFiles = this.options.generation.attachFiles({ record, adminUser });
+          attachmentFiles = await this.options.generation.attachFiles({ record, adminUser });
           // if files is not array, make it array
           if (!Array.isArray(attachmentFiles)) {
             attachmentFiles = [attachmentFiles];

@@ -131,7 +131,7 @@ export type PluginOptions = {
     attachFiles?: ({ record, adminUser }: {
       record: any,
       adminUser: AdminUser,
-    }) => string[],
+    }) => string[] | Promise<string[]>,
 
     
     /**
