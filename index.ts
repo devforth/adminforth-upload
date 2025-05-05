@@ -423,6 +423,30 @@ export default class UploadPlugin extends AdminForthPlugin {
         return null
       }
     });
+    
+    server.endpoint({
+      method: 'POST',
+      path: `/plugin/${this.pluginInstanceId}/get_attachment_files`,
+      handler: async ({ body, adminUser }) => {
+        const { recordId } = body;
+    
+        if (!recordId) return { error: 'Missing recordId' };
+    
+        const record = await this.adminforth.resource(this.resourceConfig.resourceId).get([
+          Filters.EQ(this.resourceConfig.columns.find((col: any) => col.primaryKey)?.name, recordId),
+        ]);
+    
+        if (!record) return { error: 'Record not found' };
+    
+        if (!this.options.generation.attachFiles) return { files: [] };
+    
+        const files = await this.options.generation.attachFiles({ record, adminUser });
+    
+        return {
+          files: Array.isArray(files) ? files : [files],
+        };
+      },
+    });
 
   }
 

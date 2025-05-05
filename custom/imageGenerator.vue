@@ -21,10 +21,41 @@
             </div>
             <!-- Modal body -->
             <div class="p-4 md:p-5 space-y-4">
-              <textarea id="message" rows="3" class="block p-2.5 w-full text-sm text-gray-900 bg-gray-50 rounded-lg border border-gray-300 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500" 
-                :placeholder="$t('Prompt which will be passed to AI network')" v-model="prompt"
+              <!-- PROMPT TEXTAREA -->
+              <!-- Textarea -->
+              <textarea
+                id="message"
+                rows="3"
+                class="block p-2.5 w-full text-sm text-gray-900 bg-gray-50 rounded-lg border border-gray-300 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"
+                :placeholder="$t('Prompt which will be passed to AI network')"
+                v-model="prompt"
                 :title="$t('Prompt which will be passed to AI network')"
-                ></textarea>
+              ></textarea>
+
+              <!-- Thumbnails -->
+              <div class="mt-2 flex flex-wrap gap-2">
+                <img
+                  v-for="(img, idx) in attachmentFiles"
+                  :key="idx"
+                  :src="img"
+                  class="w-20 h-20 object-cover rounded cursor-pointer border hover:border-blue-500 transition"
+                  :alt="`Generated image ${idx + 1}`"
+                  @click="zoomImage(img)"
+                />
+              </div>
+
+              <!-- Fullscreen Modal -->
+              <div
+                v-if="zoomedImage"
+                class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-80"
+                @click.self="closeZoom"
+              >
+                <img
+                  :src="zoomedImage"
+                  ref="zoomedImg"
+                  class="max-w-full max-h-full rounded-lg object-contain cursor-grab"
+              />
+            </div>
 
               <div class="flex flex-col items-center justify-center w-full relative">
                 <div 
@@ -144,7 +175,7 @@
 
 <script setup lang="ts">
 
-import { ref, onMounted, nextTick, Ref, h, computed } from 'vue'
+import { ref, onMounted, nextTick, Ref, h, computed, watch, reactive } from 'vue'
 import { Carousel } from 'flowbite';
 import { callAdminForthApi } from '@/utils';
 import { useI18n } from 'vue-i18n';
@@ -158,6 +189,7 @@ const emit = defineEmits(['close', 'uploadImage']);
 const props = defineProps(['meta', 'record']);
 const images = ref([]);
 const loading = ref(false);
+const attachmentFiles = ref<string[]>([])
 
 function minifyField(field: string): string {
   if (field.length > 100) {
@@ -167,7 +199,7 @@ function minifyField(field: string): string {
 }
 
 const caurosel = ref(null);
-onMounted(() => {
+onMounted(async () => {
   // Initialize carousel
   const context = {
     field: props.meta.pathColumnLabel,
@@ -203,7 +235,24 @@ onMounted(() => {
   prompt.value = template.replace(regex, (_, field) => {
     return context[field.trim()] || '';
   });
+  
+  const recordId = props.record[props.meta.recorPkFieldName];
+  if (!recordId) return;
 
+  try {
+    const resp = await callAdminForthApi({
+      path: `/plugin/${props.meta.pluginInstanceId}/get_attachment_files`,
+      method: 'POST',
+      body: { recordId },
+    });
+
+    if (resp?.files?.length) {
+      attachmentFiles.value = resp.files;
+      console.log('attachmentFiles', attachmentFiles.value);
+    }
+  } catch (err) {
+    console.error('Failed to fetch attachment files', err);
+  }
 });
 
 async function slide(direction: number) {
@@ -357,6 +406,27 @@ async function generateImages() {
   loading.value = false;
 }
 
+import mediumZoom from 'medium-zoom'
 
+const zoomedImage = ref(null)
+const zoomedImg = ref(null)
 
+function zoomImage(img) {
+  zoomedImage.value = img
+}
+
+function closeZoom() {
+  zoomedImage.value = null
+}
+
+watch(zoomedImage, async (val) => {
+  await nextTick()
+  if (val && zoomedImg.value) {
+    mediumZoom(zoomedImg.value, {
+      margin: 24,
+      background: 'rgba(0, 0, 0, 0.9)',
+      scrollOffset: 150
+    }).show()
+  }
+})
 </script>
