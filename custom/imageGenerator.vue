@@ -97,7 +97,7 @@
                 
                 <div id="gallery" class="relative w-full" data-carousel="static">
                   <!-- Carousel wrapper -->
-                  <div class="relative h-56 overflow-hidden rounded-lg md:h-[calc(90vh-300px)]">
+                  <div class="relative h-56 overflow-hidden rounded-lg md:h-[calc(100vh-400px)]">
                       <!-- Item 1 -->
                       <div v-for="(img, index) in images" :key="index" class="hidden duration-700 ease-in-out" data-carousel-item>
                           <img :src="img" class="absolute block max-w-full max-h-full -translate-x-1/2 -translate-y-1/2 top-1/2 left-1/2 object-cover" 
