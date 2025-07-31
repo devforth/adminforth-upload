@@ -307,9 +307,11 @@ export default class UploadPlugin extends AdminForthPlugin {
         } else {
           previewUrl = await this.options.storageAdapter.getDownloadUrl(filePath, 1800);
         }
+        const tagline = `${ADMINFORTH_NOT_YET_USED_TAG}=true`;
         
         return {
           uploadUrl,
+          tagline,
           filePath,
           uploadExtraParams,
           previewUrl,

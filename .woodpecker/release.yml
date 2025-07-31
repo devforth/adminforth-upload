@@ -15,8 +15,6 @@ steps:
         from_secret: VAULT_TOKEN
     commands:
       - infisical export --domain https://vault.devforth.io/api --format=dotenv-export --env="prod" > /woodpecker/deploy.vault.env
-    secrets:
-      - VAULT_TOKEN
 
   release:
     image: node:20
