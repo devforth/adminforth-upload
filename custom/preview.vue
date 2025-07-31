@@ -78,6 +78,7 @@ onMounted(async () => {
    try {
     const response = await fetch(url.value, {
       method: 'HEAD',
+      mode: 'cors',
     });
     const ct = response.headers.get('Content-Type');
     if (ct) {
