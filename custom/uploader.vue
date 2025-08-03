@@ -12,7 +12,7 @@
       </button>
 
       <label :for="inputId" 
-        class="flex flex-col px-3 items-center justify-center w-full h-64 border-2  border-dashed rounded-lg cursor-pointer  dark:hover:bg-gray-800 hover:bg-gray-100  dark:hover:border-gray-500 dark:hover:bg-gray-600"
+        class="af-uploader flex flex-col px-3 items-center justify-center w-full h-64 border-2  border-dashed rounded-lg cursor-pointer  dark:hover:bg-gray-800 hover:bg-gray-100  dark:hover:border-gray-500 dark:hover:bg-gray-600"
         @dragover.prevent="() => dragging = true"
         @dragleave.prevent="() => dragging = false"
         @drop.prevent="onFileChange"  
