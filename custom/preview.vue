@@ -1,5 +1,5 @@
 <template>
-  <div class="max-w-[480px]">
+  <div>
     <template v-if="url">
       <img 
         v-if="contentType && contentType.startsWith('image')"
