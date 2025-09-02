@@ -1,10 +1,4 @@
 <template>
-  <Dropzone
-    :extensions="['.jpg', '.jpeg', '.png']"
-    :maxSizeBytes="1024 * 1024 * 2"
-    :multiple="false"
-  />
-
   <div class="relative w-full">
       <ImageGenerator v-if="showImageGen" @close="showImageGen = false" :record="record" :meta="meta" 
         @uploadImage="uploadGeneratedImage"  
