@@ -1,4 +1,10 @@
 <template>
+  <Dropzone
+    :extensions="['.jpg', '.jpeg', '.png']"
+    :maxSizeBytes="1024 * 1024 * 2"
+    :multiple="false"
+  />
+
   <div class="relative w-full">
       <ImageGenerator v-if="showImageGen" @close="showImageGen = false" :record="record" :meta="meta" 
         @uploadImage="uploadGeneratedImage"  
@@ -12,27 +18,27 @@
       </button>
 
       <label :for="inputId" 
-        class="af-uploader flex flex-col px-3 items-center justify-center w-full h-64 border-2  border-dashed rounded-lg cursor-pointer  dark:hover:bg-gray-800 hover:bg-gray-100  dark:hover:border-gray-500 dark:hover:bg-gray-600"
+        class="af-uploader flex flex-col px-3 items-center justify-center w-full h-64 border-2  border-dashed rounded-lg cursor-pointer  dark:hover:!bg-darkDropzoneBackgroundHover dark:hover:bg-gray-800 hover:!bg-lightDropzoneBackgroundHover hover:bg-gray-100  dark:hover:!border-darkDropzoneBorderHover dark:hover:border-gray-500 dark:hover:!bg-darkDropzoneBackgroundHover dark:hover:bg-gray-600 hover:!border-lightDropzoneBorderHover"
         @dragover.prevent="() => dragging = true"
         @dragleave.prevent="() => dragging = false"
         @drop.prevent="onFileChange"  
         :class="{
-          'border-blue-600 dark:border-blue-400': dragging,
-          'border-gray-300 dark:border-gray-600': !dragging,
-          'bg-blue-50 dark:bg-blue-800': dragging,
-          'bg-gray-50 dark:bg-gray-800': !dragging,
+          'border-blue-600 dark:border-blue-400 !border-lightDropzoneBorderDragging dark:!border-darkDropzoneBorderDragging': dragging,
+          'border-gray-300 dark:border-gray-600 !border-lightDropzoneBorder dark:!border-darkDropzoneBorder': !dragging,
+          'bg-blue-50 dark:bg-blue-800 !bg-lightDropzoneBackgroundDragging dark:!bg-darkDropzoneBackgroundDragging': dragging,
+          'bg-gray-50 dark:bg-gray-800 !bg-lightDropzoneBackground dark:!bg-darkDropzoneBackground': !dragging,
         }"
       >
           <div class="flex flex-col items-center justify-center pt-5 pb-6">
               <img v-if="imgPreview" :src="imgPreview" class="w-100 mt-4 rounded-lg h-40 object-contain" />
 
-              <svg v-else class="w-8 h-8 mb-4 text-gray-500 dark:text-gray-400" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 20 16">
+              <svg v-else class="w-8 h-8 mb-4 text-gray-500 dark:text-gray-400 !text-lightDropzoneText dark:!text-darkDropzoneText" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 20 16">
                   <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 13h3a3 3 0 0 0 0-6h-.025A5.56 5.56 0 0 0 16 6.5 5.5 5.5 0 0 0 5.207 5.021C5.137 5.017 5.071 5 5 5a4 4 0 0 0 0 8h2.167M10 15V6m0 0L8 8m2-2 2 2"/>
               </svg>
 
               <template v-if="!uploaded">
-                <p class="mb-2 text-sm text-gray-500 dark:text-gray-400"><span class="font-semibold">{{ $t('Click to upload') }}</span> {{ $t('or drag and drop') }}</p>
-                <p class="text-xs text-gray-500 dark:text-gray-400">
+                <p class="mb-2 text-sm text-gray-500 dark:text-gray-400 !text-lightDropzoneText dark:!text-darkDropzoneText"><span class="font-semibold">{{ $t('Click to upload') }}</span> {{ $t('or drag and drop') }}</p>
+                <p class="text-xs text-gray-500 dark:text-gray-400 !text-lightDropzoneText dark:!text-darkDropzoneText">
                   {{ allowedExtensionsLabel }} {{ meta.maxFileSize ? $t(`(up to {size})`, { size: humanifySize(meta.maxFileSize) }) : '' }}
                 </p>
               </template>
@@ -51,11 +57,11 @@
                 </svg>
                 <p class="ml-2 text-sm text-green-600 dark:text-green-400 flex items-center">
                   {{ $t('File uploaded') }}
-                  <span class="text-xs text-gray-500 dark:text-gray-400">{{ humanifySize(uploadedSize) }}</span>
+                  <span class="text-xs text-gray-500 dark:text-gray-400" :class="'!text-lightDropzoneText !dark:text-darkDropzoneText'">{{ humanifySize(uploadedSize) }}</span>
                 </p>
 
                 <button @click.stop.prevent="clear" class="ml-2 text-xs text-gray-500 dark:text-gray-400 hover:text-gray-600 dark:hover:text-gray-500
-                  hover:underline dark:hover:underline focus:outline-none">{{ $t('Clear') }}</button>
+                  hover:underline dark:hover:underline focus:outline-none" :class="'!text-lightDropzoneText !hover:text-lightDropzoneText !dark:text-darkDropzoneText dark:hover:text-darkDropzoneText'">{{ $t('Clear') }}</button>
               </div>
               
           </div>
@@ -71,7 +77,6 @@ import { callAdminForthApi } from '@/utils'
 import { IconMagic } from '@iconify-prerendered/vue-mdi';
 import { useI18n } from 'vue-i18n';
 import { useRoute } from 'vue-router';
-
 
 const route = useRoute();
 const { t } = useI18n();
