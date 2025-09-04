@@ -397,7 +397,7 @@ export default class UploadPlugin extends AdminForthPlugin {
                 }
               )
             } catch (e: any) {
-              error = `No response from image generation provider: ${e.message}. Please check your propmpt or try again later.`;
+              error = `No response from image generation provider: ${e.message}. Please check your prompt or try again later.`;
               return;
             }
 
