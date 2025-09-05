@@ -386,14 +386,20 @@ export default class UploadPlugin extends AdminForthPlugin {
               return `https://picsum.photos/200/300?random=${Math.floor(Math.random() * 1000)}`;
             }
             const start = +new Date();
-            const resp = await this.options.generation.adapter.generate(
-              {
-                prompt,
-                inputFiles: attachmentFiles,
-                n: 1,
-                size: this.options.generation.outputSize,
-              }
-            )
+            let resp;
+            try {
+              resp = await this.options.generation.adapter.generate(
+                {
+                  prompt,
+                  inputFiles: attachmentFiles,
+                  n: 1,
+                  size: this.options.generation.outputSize,
+                }
+              )
+            } catch (e: any) {
+              error = `No response from image generation provider: ${e.message}. Please check your prompt or try again later.`;
+              return;
+            }
 
             if (resp.error) {
               console.error('Error generating image', resp.error);
