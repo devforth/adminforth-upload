@@ -51,7 +51,7 @@
                 </svg>
                 <p class="ml-2 text-sm text-green-600 dark:text-green-400 flex items-center">
                   {{ $t('File uploaded') }}
-                  <span class="text-xs text-gray-500 dark:text-gray-400 !text-lightDropzoneText !dark:text-darkDropzoneText">{{ humanifySize(uploadedSize) }}</span>
+                  <span class="text-xs text-gray-500 dark:text-gray-400 !text-lightDropzoneText dark:!text-darkDropzoneText">{{ humanifySize(uploadedSize) }}</span>
                 </p>
 
                 <button @click.stop.prevent="clear" class="ml-2 text-xs text-gray-500 dark:text-gray-400 hover:text-gray-600 dark:hover:text-gray-500
