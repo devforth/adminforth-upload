@@ -3,9 +3,10 @@ import { PluginOptions } from './types.js';
 import { AdminForthPlugin, AdminForthResourceColumn, AdminForthResource, Filters, IAdminForth, IHttpServer, suggestIfTypo } from "adminforth";
 import { Readable } from "stream";
 import { RateLimiter } from "adminforth";
+import { randomUUID } from "crypto";
 
 const ADMINFORTH_NOT_YET_USED_TAG = 'adminforth-candidate-for-cleanup';
-
+const jobs = new Map();
 export default class UploadPlugin extends AdminForthPlugin {
   options: PluginOptions;
 
@@ -24,6 +25,82 @@ export default class UploadPlugin extends AdminForthPlugin {
     this.totalCalls = 0;
     this.totalDuration = 0;
   }
+
+  private async generateImages(jobId: string, prompt: string, recordId: any, adminUser: any, headers: any) {
+    if (this.options.generation.rateLimit?.limit) {
+      // rate limit
+      const { error } = RateLimiter.checkRateLimit(
+        this.pluginInstanceId, 
+        this.options.generation.rateLimit?.limit,
+        this.adminforth.auth.getClientIp(headers),
+      );
+      if (error) {
+        return { error: this.options.generation.rateLimit.errorMessage };
+      }
+    }
+    let attachmentFiles = [];
+    if (this.options.generation.attachFiles) {
+      // TODO - does it require additional allowed action to check this record id has access to get the image?
+      // or should we mention in docs that user should do validation in method itself
+      const record = await this.adminforth.resource(this.resourceConfig.resourceId).get(
+        [Filters.EQ(this.resourceConfig.columns.find(c => c.primaryKey)?.name, recordId)]
+      );
+
+
+      if (!record) {
+        return { error: `Record with id ${recordId} not found` };
+      }
+      
+      attachmentFiles = await this.options.generation.attachFiles({ record, adminUser });
+      // if files is not array, make it array
+      if (!Array.isArray(attachmentFiles)) {
+        attachmentFiles = [attachmentFiles];
+      }
+
+    }
+    
+    let error: string | undefined = undefined;
+
+    const STUB_MODE = false;
+
+    const images = await Promise.all(
+      (new Array(this.options.generation.countToGenerate)).fill(0).map(async () => {
+        if (STUB_MODE) {
+          await new Promise((resolve) => setTimeout(resolve, 2000));
+          return `https://picsum.photos/200/300?random=${Math.floor(Math.random() * 1000)}`;
+        }
+        const start = +new Date();
+        let resp;
+        try {
+          resp = await this.options.generation.adapter.generate(
+            {
+              prompt,
+              inputFiles: attachmentFiles,
+              n: 1,
+              size: this.options.generation.outputSize,
+            }
+          )
+        } catch (e: any) {
+          error = `No response from image generation provider: ${e.message}. Please check your prompt or try again later.`;
+          return;
+        }
+
+        if (resp.error) {
+          console.error('Error generating image', resp.error);
+          error = resp.error;
+          return;
+        }
+
+        this.totalCalls++;
+        this.totalDuration += (+new Date() - start) / 1000;
+        
+        return resp.imageURLs[0]
+
+      })
+    );
+    jobs.set(jobId, { status: "completed", images, error });
+    return { ok: true };
+  };
 
   instanceUniqueRepresentation(pluginOptions: any) : string {
     return `${pluginOptions.pathColumnName}`;
@@ -341,81 +418,32 @@ export default class UploadPlugin extends AdminForthPlugin {
 
     server.endpoint({
       method: 'POST',
-      path: `/plugin/${this.pluginInstanceId}/generate_images`,
+      path: `/plugin/${this.pluginInstanceId}/create-image-generation-job`,
       handler: async ({ body, adminUser, headers }) => {
         const { prompt, recordId } = body;
-        if (this.options.generation.rateLimit?.limit) {
-          // rate limit
-          const { error } = RateLimiter.checkRateLimit(
-            this.pluginInstanceId, 
-            this.options.generation.rateLimit?.limit,
-            this.adminforth.auth.getClientIp(headers),
-          );
-          if (error) {
-            return { error: this.options.generation.rateLimit.errorMessage };
-          }
-        }
-        let attachmentFiles = [];
-        if (this.options.generation.attachFiles) {
-          // TODO - does it require additional allowed action to check this record id has access to get the image?
-          // or should we mention in docs that user should do validation in method itself
-          const record = await this.adminforth.resource(this.resourceConfig.resourceId).get(
-            [Filters.EQ(this.resourceConfig.columns.find((column: any) => column.primaryKey)?.name, recordId)]
-          );
 
-          if (!record) {
-            return { error: `Record with id ${recordId} not found` };
-          }
-          
-          attachmentFiles = await this.options.generation.attachFiles({ record, adminUser });
-          // if files is not array, make it array
-          if (!Array.isArray(attachmentFiles)) {
-            attachmentFiles = [attachmentFiles];
-          }
+        const jobId = randomUUID();
+        jobs.set(jobId, { status: "in_progress" });
 
-        }
+        setTimeout(async () => await this.generateImages(jobId, prompt, recordId, adminUser, headers), 100);
         
-        let error: string | undefined = undefined;
+        return { ok: true, jobId };
+      }
+    });
 
-        const STUB_MODE = false;
-
-        const images = await Promise.all(
-          (new Array(this.options.generation.countToGenerate)).fill(0).map(async () => {
-            if (STUB_MODE) {
-              await new Promise((resolve) => setTimeout(resolve, 2000));
-              return `https://picsum.photos/200/300?random=${Math.floor(Math.random() * 1000)}`;
-            }
-            const start = +new Date();
-            let resp;
-            try {
-              resp = await this.options.generation.adapter.generate(
-                {
-                  prompt,
-                  inputFiles: attachmentFiles,
-                  n: 1,
-                  size: this.options.generation.outputSize,
-                }
-              )
-            } catch (e: any) {
-              error = `No response from image generation provider: ${e.message}. Please check your prompt or try again later.`;
-              return;
-            }
-
-            if (resp.error) {
-              console.error('Error generating image', resp.error);
-              error = resp.error;
-              return;
-            }
-
-            this.totalCalls++;
-            this.totalDuration += (+new Date() - start) / 1000;
-            
-            return resp.imageURLs[0]
-
-          })
-        );
-
-        return { error, images };
+    server.endpoint({
+      method: 'POST',
+      path: `/plugin/${this.pluginInstanceId}/get-image-generation-job-status`,
+      handler: async ({ body, adminUser, headers }) => {
+        const jobId = body.jobId;
+        if (!jobId) {
+          return { error: "Can't find job id" };
+        }
+        const job = jobs.get(jobId);
+        if (!job) {
+          return { error: "Job not found" };
+        }
+        return { ok: true, job };
       }
     });
 
@@ -457,5 +485,6 @@ export default class UploadPlugin extends AdminForthPlugin {
     });
 
   }
+  
 
 }
