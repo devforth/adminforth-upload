@@ -443,6 +443,9 @@ export default class UploadPlugin extends AdminForthPlugin {
         if (!job) {
           return { error: "Job not found" };
         }
+        if (job.status === 'completed') {
+          setTimeout(() => jobs.delete(jobId), 60_000);
+        }
         return { ok: true, job };
       }
     });
