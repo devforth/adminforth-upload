@@ -426,7 +426,8 @@ export default class UploadPlugin extends AdminForthPlugin {
         jobs.set(jobId, { status: "in_progress" });
 
         setTimeout(async () => await this.generateImages(jobId, prompt, recordId, adminUser, headers), 100);
-        
+        setTimeout(() => jobs.delete(jobId), 300_000);
+
         return { ok: true, jobId };
       }
     });
@@ -442,9 +443,6 @@ export default class UploadPlugin extends AdminForthPlugin {
         const job = jobs.get(jobId);
         if (!job) {
           return { error: "Job not found" };
-        }
-        if (job.status === 'completed') {
-          setTimeout(() => jobs.delete(jobId), 60_000);
         }
         return { ok: true, job };
       }
