@@ -370,7 +370,7 @@ async function generateImages() {
   const jobId = resp.jobId;
   let jobStatus = null;
   let jobResponse = null;
-  while (jobStatus !== 'completed' && jobStatus !== 'failed') {
+  while (jobStatus === 'in_progress') {
     jobResponse = await callAdminForthApi({
       path: `/plugin/${props.meta.pluginInstanceId}/get-image-generation-job-status`,
       method: 'POST',
@@ -383,6 +383,9 @@ async function generateImages() {
     jobStatus = jobResponse?.job?.status;
     if (jobStatus === 'failed') {
       error = jobResponse?.job?.error || $t('Image generation job failed');
+    }
+    if (jobStatus === 'timeout') {
+      error = jobResponse?.job?.error || $t('Image generation job timeout');
     }
     await new Promise((resolve) => setTimeout(resolve, 2000));
   }
