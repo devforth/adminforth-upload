@@ -56,16 +56,6 @@ export default class UploadPlugin extends AdminForthPlugin {
       throw new Error(`Column with name "${pathColumnName}" not found in resource "${resourceConfig.label}"`);
     }
 
-    if (this.options.generation?.fieldsForContext) {
-      this.options.generation?.fieldsForContext.forEach((field: string) => {
-        if (!resourceConfig.columns.find((column: any) => column.name === field)) {
-          const similar = suggestIfTypo(resourceConfig.columns.map((column: any) => column.name), field);
-          throw new Error(`Field "${field}" specified in fieldsForContext not found in
- resource "${resourceConfig.label}". ${similar ? `Did you mean "${similar}"?` : ''}`);
-        }
-      });
-    }
-
     const pluginFrontendOptions = {
       allowedExtensions: this.options.allowedFileExtensions,
       maxFileSize: this.options.maxFileSize,
@@ -257,6 +247,21 @@ export default class UploadPlugin extends AdminForthPlugin {
 
   validateConfigAfterDiscover(adminforth: IAdminForth, resourceConfig: any) {
     this.adminforth = adminforth;
+    
+    if (this.options.generation) {
+      const template = this.options.generation?.generationPrompt;
+      const regex = /{{(.*?)}}/g;
+      const matches = template.match(regex);
+      if (matches) {
+        matches.forEach((match) => {
+          const field = match.replace(/{{|}}/g, '').trim();
+          if (!resourceConfig.columns.find((column: any) => column.name === field)) {
+            const similar = suggestIfTypo(resourceConfig.columns.map((column: any) => column.name), field);
+            throw new Error(`Field "${field}" specified in generationPrompt not found in resource "${resourceConfig.label}". ${similar ? `Did you mean "${similar}"?` : ''}`);
+          }
+        });
+      }
+    }
     // called here because modifyResourceConfig can be called in build time where there is no environment and AWS secrets
     this.setupLifecycleRule();
   }
