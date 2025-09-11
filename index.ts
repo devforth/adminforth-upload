@@ -258,6 +258,11 @@ export default class UploadPlugin extends AdminForthPlugin {
           if (!resourceConfig.columns.find((column: any) => column.name === field)) {
             const similar = suggestIfTypo(resourceConfig.columns.map((column: any) => column.name), field);
             throw new Error(`Field "${field}" specified in generationPrompt not found in resource "${resourceConfig.label}". ${similar ? `Did you mean "${similar}"?` : ''}`);
+          } else {
+            let column = resourceConfig.columns.find((column: any) => column.name === field);
+            if (column.backendOnly === true) {
+              throw new Error(`Field "${field}" specified in generationPrompt is marked as backendOnly in resource "${resourceConfig.label}". Please remove backendOnly or choose another field.`);
+            }
           }
         });
       }
