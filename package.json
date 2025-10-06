@@ -4,6 +4,9 @@
   "description": "Plugin for uploading files for adminforth",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
+  "publishConfig": {
+    "access": "public"
+  },
   "homepage": "https://adminforth.dev/docs/tutorial/Plugins/upload/",
   "repository": {
     "type": "git",
