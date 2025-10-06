@@ -194,7 +194,7 @@ const onFileChange = async (e) => {
   console.log('File details:', { name, extension, size, type });
   // validate file extension
   const allowedExtensions = props.meta.allowedExtensions || []
-  if (allowedExtensions.length > 0 && !allowedExtensions.includes(extension)) {
+  if (allowedExtensions.length > 0 && !allowedExtensions.includes(extension.toLowerCase())) {
     adminforth.alert({
       message: t('Sorry but the file type {extension} is not allowed. Please upload a file with one of the following extensions: {allowedExtensionsLabel}', {
         extension,

@@ -281,7 +281,7 @@ export default class UploadPlugin extends AdminForthPlugin {
       handler: async ({ body }) => {
         const { originalFilename, contentType, size, originalExtension, recordPk } = body;
 
-        if (this.options.allowedFileExtensions && !this.options.allowedFileExtensions.includes(originalExtension)) {
+        if (this.options.allowedFileExtensions && !this.options.allowedFileExtensions.includes(originalExtension.toLowerCase())) {
           return {
             error: `File extension "${originalExtension}" is not allowed, allowed extensions are: ${this.options.allowedFileExtensions.join(', ')}`
           };
