@@ -16,6 +16,8 @@ export default class UploadPlugin extends AdminForthPlugin {
 
   resourceConfig: AdminForthResource;
 
+  rateLimiter: RateLimiter;
+
   constructor(options: PluginOptions) {
     super(options, import.meta.url);
     this.options = options;
@@ -23,6 +25,7 @@ export default class UploadPlugin extends AdminForthPlugin {
     // for calcualting average time
     this.totalCalls = 0;
     this.totalDuration = 0;
+    this.rateLimiter = new RateLimiter(this.options.generation.rateLimit?.limit)
   }
 
   instanceUniqueRepresentation(pluginOptions: any) : string {
@@ -351,8 +354,7 @@ export default class UploadPlugin extends AdminForthPlugin {
           //   this.options.generation.rateLimit?.limit,
           //   this.adminforth.auth.getClientIp(headers),
           // );
-          const rateLimiter = new RateLimiter(this.options.generation.rateLimit?.limit);
-          if (!rateLimiter.consume(`${this.pluginInstanceId}-${this.adminforth.auth.getClientIp(headers)}`)) {
+          if (!await this.rateLimiter.consume(`${this.pluginInstanceId}-${this.adminforth.auth.getClientIp(headers)}`)) {
             return { error: this.options.generation.rateLimit.errorMessage };
           }
         }
