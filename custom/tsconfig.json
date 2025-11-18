@@ -4,16 +4,27 @@
     "paths": {
       "@/*": [
         // "node_modules/adminforth/dist/spa/src/*"
-        "../../../spa/src/*"
+        "../../../adminforth/spa/src/*"
       ],
       "*": [
         // "node_modules/adminforth/dist/spa/node_modules/*"
-        "../../../spa/node_modules/*"
+        "../../../adminforth/spa/node_modules/*"
       ],
       "@@/*": [
         // "node_modules/adminforth/dist/spa/src/*"
         "."
       ]
     }
-  }
+  },
+  "include": [
+    "./**/*.ts",
+    "./**/*.tsx",
+    "./**/*.vue",
+    "../**/*.ts",
+    "../**/*.tsx",
+    "../**/*.vue",
+    "../*.vue",
+    "../*.ts",
+    "../*.tsx"
+  ]
 }
