@@ -27,19 +27,20 @@ export default class UploadPlugin extends AdminForthPlugin {
     this.totalCalls = 0;
     this.totalDuration = 0;
     if (this.options.generation?.rateLimit?.limit) {
-    this.rateLimiter = new RateLimiter(this.options.generation.rateLimit?.limit)
+      this.rateLimiter = new RateLimiter(this.options.generation.rateLimit?.limit)
     }
   }
 
   private async generateImages(jobId: string, prompt: string, recordId: any, adminUser: any, headers: any) {
     if (this.options.generation.rateLimit?.limit) {
       // rate limit
-      const { error } = RateLimiter.checkRateLimit(
-        this.pluginInstanceId, 
-        this.options.generation.rateLimit?.limit,
-        this.adminforth.auth.getClientIp(headers),
-      );
-      if (error) {
+      // const { error } = RateLimiter.checkRateLimit(
+      //   this.pluginInstanceId, 
+      //   this.options.generation.rateLimit?.limit,
+      //   this.adminforth.auth.getClientIp(headers),
+      // );
+      if (!await this.rateLimiter.consume(`${this.pluginInstanceId}-${this.adminforth.auth.getClientIp(headers)}`)) {
+        jobs.set(jobId, { status: "failed", error: this.options.generation.rateLimit.errorMessage });
         return { error: this.options.generation.rateLimit.errorMessage };
       }
     }
@@ -426,62 +427,6 @@ export default class UploadPlugin extends AdminForthPlugin {
       path: `/plugin/${this.pluginInstanceId}/create-image-generation-job`,
       handler: async ({ body, adminUser, headers }) => {
         const { prompt, recordId } = body;
-        if (this.rateLimiter) {
-          // rate limit
-          // const { error } = RateLimiter.checkRateLimit(
-          //   this.pluginInstanceId, 
-          //   this.options.generation.rateLimit?.limit,
-          //   this.adminforth.auth.getClientIp(headers),
-          // );
-          if (!await this.rateLimiter.consume(`${this.pluginInstanceId}-${this.adminforth.auth.getClientIp(headers)}`)) {
-            return { error: this.options.generation.rateLimit.errorMessage };
-          }
-        }
-        let attachmentFiles = [];
-        if (this.options.generation.attachFiles) {
-          // TODO - does it require additional allowed action to check this record id has access to get the image?
-          // or should we mention in docs that user should do validation in method itself
-          const record = await this.adminforth.resource(this.resourceConfig.resourceId).get(
-            [Filters.EQ(this.resourceConfig.columns.find((column: any) => column.primaryKey)?.name, recordId)]
-          );
-
-          if (!record) {
-            return { error: `Record with id ${recordId} not found` };
-          }
-          
-          attachmentFiles = await this.options.generation.attachFiles({ record, adminUser });
-          // if files is not array, make it array
-          if (!Array.isArray(attachmentFiles)) {
-            attachmentFiles = [attachmentFiles];
-          }
-
-        }
-        
-        let error: string | undefined = undefined;
-
-        const STUB_MODE = false;
-
-        const images = await Promise.all(
-          (new Array(this.options.generation.countToGenerate)).fill(0).map(async () => {
-            if (STUB_MODE) {
-              await new Promise((resolve) => setTimeout(resolve, 2000));
-              return `https://picsum.photos/200/300?random=${Math.floor(Math.random() * 1000)}`;
-            }
-            const start = +new Date();
-            let resp;
-            try {
-              resp = await this.options.generation.adapter.generate(
-                {
-                  prompt,
-                  inputFiles: attachmentFiles,
-                  n: 1,
-                  size: this.options.generation.outputSize,
-                }
-              )
-            } catch (e: any) {
-              error = `No response from image generation provider: ${e.message}. Please check your prompt or try again later.`;
-              return;
-            }
 
         const jobId = randomUUID();
         jobs.set(jobId, { status: "in_progress" });

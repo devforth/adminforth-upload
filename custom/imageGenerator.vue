@@ -396,6 +396,9 @@ async function generateImages() {
         variant: 'danger',
         timeout: 'unlimited',
       });
+      clearInterval(ticker);
+      loadingTimer.value = null;
+      loading.value = false;
     return;
   }
 
