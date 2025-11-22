@@ -181,6 +181,7 @@ import { callAdminForthApi } from '@/utils';
 import { useI18n } from 'vue-i18n';
 import adminforth from '@/adminforth';
 import { ProgressBar } from '@/afcl';
+import * as Handlebars from 'handlebars';
 
 const { t: $t } = useI18n();
 
@@ -213,28 +214,9 @@ onMounted(async () => {
   }
   // iterate over all variables in template and replace them with their values from props.record[field]. 
   // if field is not present in props.record[field] then replace it with empty string and drop warning
-  const regex = /{{(.*?)}}/g;
-  const matches = template.match(regex);
-  if (matches) {
-    matches.forEach((match) => {
-      const field = match.replace(/{{|}}/g, '').trim();
-      if (field in context) {
-        return;
-      } else if (field in props.record) {
-        context[field] = minifyField(props.record[field]);
-      } else {
-        adminforth.alert({
-          message: $t('Field {{field}} defined in template but not found in record', { field }),
-          variant: 'warning',
-          timeout: 15,
-        });
-      } 
-    });
-  }
-
-  prompt.value = template.replace(regex, (_, field) => {
-    return context[field.trim()] || '';
-  });
+  const tpl = Handlebars.compile(template);
+  const compiledTemplate = tpl(props.record);
+  prompt.value = compiledTemplate;
   
   const recordId = props.record[props.meta.recorPkFieldName];
   if (!recordId) return;
