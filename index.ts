@@ -90,28 +90,6 @@ export default class UploadPlugin extends AdminForthPlugin {
     // define components which will be imported from other components
     this.componentPath('imageGenerator.vue');
 
-    const virtualColumn: AdminForthResourceColumn = {
-      virtual: true,
-      name: `uploader_${this.pluginInstanceId}`,
-      components: {
-        edit: {
-          file: this.componentPath('uploader.vue'),
-          meta: pluginFrontendOptions,
-        },
-        create: {
-          file: this.componentPath('uploader.vue'),
-          meta: pluginFrontendOptions,
-        },
-      },
-      showIn: {
-        create: true,
-        edit: true,
-        list: false,
-        show: false,
-        filter: false,
-      },
-    };
-   
     if (!resourceConfig.columns[pathColumnIndex].components) {
       resourceConfig.columns[pathColumnIndex].components = {};
     }
@@ -130,38 +108,18 @@ export default class UploadPlugin extends AdminForthPlugin {
       };
     }
 
-    // insert virtual column after path column if it is not already there
-    const virtualColumnIndex = resourceConfig.columns.findIndex((column: any) => column.name === virtualColumn.name);
-    if (virtualColumnIndex === -1) {
-      resourceConfig.columns.splice(pathColumnIndex + 1, 0, virtualColumn);
+    resourceConfig.columns[pathColumnIndex].components.create = {
+      file: this.componentPath('uploader.vue'),
+      meta: pluginFrontendOptions,
     }
 
-
-    // if showIn of path column has 'create' or 'edit' remove it but use it for virtual column
-    if (pathColumn.showIn && (pathColumn.showIn.create !== undefined)) {
-      virtualColumn.showIn = { ...virtualColumn.showIn, create: pathColumn.showIn.create };
-      pathColumn.showIn = { ...pathColumn.showIn, create: false };
+    resourceConfig.columns[pathColumnIndex].components.edit = {
+      file: this.componentPath('uploader.vue'),
+      meta: pluginFrontendOptions,
     }
-
-    if (pathColumn.showIn && (pathColumn.showIn.edit !== undefined)) {
-      virtualColumn.showIn = { ...virtualColumn.showIn, edit: pathColumn.showIn.edit };
-      pathColumn.showIn = { ...pathColumn.showIn, edit: false };
-    }
-
-    virtualColumn.required = pathColumn.required;
-    virtualColumn.label = pathColumn.label;
-    virtualColumn.editingNote = pathColumn.editingNote;
 
     // ** HOOKS FOR CREATE **//
 
-    // add beforeSave hook to save virtual column to path column
-    resourceConfig.hooks.create.beforeSave.push(async ({ record }: { record: any }) => {
-      if (record[virtualColumn.name]) {
-        record[pathColumnName] = record[virtualColumn.name];
-        delete record[virtualColumn.name];
-      }
-      return { ok: true };
-    });
 
     // in afterSave hook, aremove tag adminforth-not-yet-used from the file
     resourceConfig.hooks.create.afterSave.push(async ({ record }: { record: any }) => {
@@ -225,20 +183,12 @@ export default class UploadPlugin extends AdminForthPlugin {
 
     // ** HOOKS FOR EDIT **//
 
-    // beforeSave
-    resourceConfig.hooks.edit.beforeSave.push(async ({ record }: { record: any }) => {
-      // null is when value is removed
-      if (record[virtualColumn.name] || record[virtualColumn.name] === null) {
-        record[pathColumnName] = record[virtualColumn.name];
-      }
-      return { ok: true };
-    })
 
 
     // add edit postSave hook to delete old file and remove tag from new file
     resourceConfig.hooks.edit.afterSave.push(async ({ updates, oldRecord }: { updates: any, oldRecord: any }) => {
 
-      if (updates[virtualColumn.name] || updates[virtualColumn.name] === null) {
+      if (updates[pathColumnName] || updates[pathColumnName] === null) {
         if (oldRecord[pathColumnName]) {
           // put tag to delete old file
           try {
@@ -248,7 +198,7 @@ export default class UploadPlugin extends AdminForthPlugin {
             console.error(`Error setting tag ${ADMINFORTH_NOT_YET_USED_TAG} to true for object ${oldRecord[pathColumnName]}. File will not be auto-cleaned up`, e);
           }
         }
-        if (updates[virtualColumn.name] !== null) {
+        if (updates[pathColumnName] !== null) {
           // remove tag from new file
           // in this case we let it crash if it fails: this is a new file which just was uploaded. 
           await  this.options.storageAdapter.markKeyForNotDeletation(updates[pathColumnName]);
