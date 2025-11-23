@@ -418,7 +418,9 @@ export default class UploadPlugin extends AdminForthPlugin {
       path: `/plugin/${this.pluginInstanceId}/get-file-download-url`,
       handler: async ({ body, adminUser }) => {
         const { filePath } = body;
-    
+        if (!filePath) {
+          return { error: 'Missing filePath' };
+        }
         const url = await this.options.storageAdapter.getDownloadUrl(filePath, 1800);
     
         return {
