@@ -3,7 +3,6 @@ import { PluginOptions } from './types.js';
 import { AdminForthPlugin, AdminForthResourceColumn, AdminForthResource, Filters, IAdminForth, IHttpServer, suggestIfTypo } from "adminforth";
 import { Readable } from "stream";
 import { RateLimiter } from "adminforth";
-import { url } from 'inspector/promises';
 
 const ADMINFORTH_NOT_YET_USED_TAG = 'adminforth-candidate-for-cleanup';
 
@@ -437,6 +436,10 @@ export default class UploadPlugin extends AdminForthPlugin {
 
         if (!fileDownloadURL) {
           return { error: 'Missing fileDownloadURL' };
+        }
+
+        if (!fileDownloadURL.startsWith(`http://${(this.options.storageAdapter as any).options.bucket}`) && !fileDownloadURL.startsWith(`https://${(this.options.storageAdapter as any).options.bucket}`)) {
+          return { error: 'Invalid fileDownloadURL ' };
         }
 
         const upstream = await fetch(fileDownloadURL);
