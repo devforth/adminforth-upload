@@ -128,7 +128,11 @@ export default class UploadPlugin extends AdminForthPlugin {
       if (record[pathColumnName]) {
         process.env.HEAVY_DEBUG && console.log('🪥🪥 remove ObjectTagging', record[pathColumnName]);
         // let it crash if it fails: this is a new file which just was uploaded.
-        await this.options.storageAdapter.markKeyForNotDeletation(record[pathColumnName]);
+        if (this.options.storageAdapter.markKeyForNotDeletion !== undefined) {
+          await this.options.storageAdapter.markKeyForNotDeletion(record[pathColumnName]);
+        } else {
+          await this.options.storageAdapter.markKeyForNotDeletation(record[pathColumnName]);
+        }
       }
       return { ok: true };
     });
@@ -171,7 +175,11 @@ export default class UploadPlugin extends AdminForthPlugin {
     resourceConfig.hooks.delete.afterSave.push(async ({ record }: { record: any }) => {
       if (record[pathColumnName]) {
         try {
-          await this.options.storageAdapter.markKeyForDeletation(record[pathColumnName]);
+          if (this.options.storageAdapter.markKeyForDeletion !== undefined) {
+            await this.options.storageAdapter.markKeyForDeletion(record[pathColumnName]);
+          } else {
+            await this.options.storageAdapter.markKeyForDeletation(record[pathColumnName]);
+          }
         } catch (e) {
           // file might be e.g. already deleted, so we catch error
           console.error(`Error setting tag ${ADMINFORTH_NOT_YET_USED_TAG} to true for object ${record[pathColumnName]}. File will not be auto-cleaned up`, e);
@@ -192,7 +200,11 @@ export default class UploadPlugin extends AdminForthPlugin {
         if (oldRecord[pathColumnName]) {
           // put tag to delete old file
           try {
-            await this.options.storageAdapter.markKeyForDeletation(oldRecord[pathColumnName]);
+            if (this.options.storageAdapter.markKeyForDeletion !== undefined) {
+              await this.options.storageAdapter.markKeyForDeletion(oldRecord[pathColumnName]);
+            } else {
+              await this.options.storageAdapter.markKeyForDeletation(oldRecord[pathColumnName]);
+            }
           } catch (e) {
             // file might be e.g. already deleted, so we catch error
             console.error(`Error setting tag ${ADMINFORTH_NOT_YET_USED_TAG} to true for object ${oldRecord[pathColumnName]}. File will not be auto-cleaned up`, e);
@@ -201,7 +213,11 @@ export default class UploadPlugin extends AdminForthPlugin {
         if (updates[pathColumnName] !== null) {
           // remove tag from new file
           // in this case we let it crash if it fails: this is a new file which just was uploaded. 
+        if (this.options.storageAdapter.markKeyForNotDeletion !== undefined) {
+          await this.options.storageAdapter.markKeyForNotDeletion(updates[pathColumnName]);
+        } else {
           await  this.options.storageAdapter.markKeyForNotDeletation(updates[pathColumnName]);
+        }
         }
       }
       return { ok: true };
