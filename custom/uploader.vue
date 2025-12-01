@@ -103,6 +103,8 @@ const progress = ref(0);
 const uploaded = ref(false);
 const uploadedSize = ref(0);
 
+const downloadFileUrl = ref('');
+
 watch(() => uploaded, (value) => {
   emit('update:emptiness', !value);
 });
@@ -118,9 +120,45 @@ function uploadGeneratedImage(imgBlob) {
   });
 }
 
-onMounted(() => {
+onMounted(async () => {
   const previewColumnName = `previewUrl_${props.meta.pluginInstanceId}`;
-  if (props.record[previewColumnName]) {
+
+  let queryValues;
+  try { 
+    queryValues = JSON.parse(atob(route.query.values as string));
+  } catch (e) {
+    queryValues = {};
+  }
+
+  if (queryValues[props.meta.pathColumnName]) {
+
+
+    downloadFileUrl.value = queryValues[props.meta.pathColumnName];
+
+    const resp = await callAdminForthApi({
+        path: `/plugin/${props.meta.pluginInstanceId}/get-file-download-url`,
+        method: 'POST',
+        body: {
+          filePath: queryValues[props.meta.pathColumnName]
+        },
+    });
+    if (resp.error) {
+        adminforth.alert({
+          message: t('Error getting file url'),
+          variant: 'danger'
+        });
+      return;
+    }
+    const file = await downloadAsFile(resp.url);
+    if (!file) {
+      return;
+    }
+    onFileChange({
+      target: {
+        files: [file],
+      },
+    });
+  } else if (props.record[previewColumnName]) {
     imgPreview.value = props.record[previewColumnName];
     uploaded.value = true;
     emit('update:emptiness', false);
@@ -300,6 +338,46 @@ const onFileChange = async (e) => {
   }
 }
 
+async function downloadAsFile(url) {
+    const options = {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ fileDownloadURL: url }),
+    };
+    const fullPath = `${import.meta.env.VITE_ADMINFORTH_PUBLIC_PATH || ''}/adminapi/v1/plugin/${props.meta.pluginInstanceId}/proxy-download`;
+    const resp = await fetch(fullPath, options);
+    let isError = false;
+    try {
+      const jsonResp = await resp.clone().json();
+      if (jsonResp.error) {
+        adminforth.alert({
+          message: t('Error uploading file'),
+          variant: 'danger'
+        });
+        isError = true;
+      } 
+    } catch (e) {
 
+    }
+
+    if (isError) {
+      return null;
+    }
+
+    const blob = await resp.blob();
+
+    const filename = url.split('/').pop()?.split('?')[0] || `file`;
+    const filenameParts = filename.split('.');
+    const extension = filenameParts.length > 1 ? filenameParts.pop() : '';
+    const nameWithoutExt = filenameParts.join('.');
+    const newFileName = extension 
+      ? `${nameWithoutExt}_copy_${Date.now()}.${extension}`
+      : `${filename}_copy_${Date.now()}`;
+    
+    const file = new File([blob], newFileName, { type: blob.type });
+    return file;
+}
 
 </script>

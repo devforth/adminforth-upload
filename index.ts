@@ -86,6 +86,7 @@ export default class UploadPlugin extends AdminForthPlugin {
       minShowWidth: this.options.preview?.minShowWidth,
       generationPrompt: this.options.generation?.generationPrompt,
       recorPkFieldName: this.resourceConfig.columns.find((column: any) => column.primaryKey)?.name,
+      pathColumnName: this.options.pathColumnName,
     };
     // define components which will be imported from other components
     this.componentPath('imageGenerator.vue');
@@ -424,6 +425,55 @@ export default class UploadPlugin extends AdminForthPlugin {
         return {
           files: Array.isArray(files) ? files : [files],
         };
+      },
+    });
+
+    server.endpoint({
+      method: 'POST',
+      path: `/plugin/${this.pluginInstanceId}/get-file-download-url`,
+      handler: async ({ body, adminUser }) => {
+        const { filePath } = body;
+        if (!filePath) {
+          return { error: 'Missing filePath' };
+        }
+        const url = await this.options.storageAdapter.getDownloadUrl(filePath, 1800);
+    
+        return {
+          url,
+        };
+      },
+    });
+
+    server.endpoint({
+      method: 'POST',
+      path: `/plugin/${this.pluginInstanceId}/proxy-download`,
+      handler: async ({ body, response }) => {
+        const { fileDownloadURL } = body;
+
+        if (!fileDownloadURL) {
+          return { error: 'Missing fileDownloadURL' };
+        }
+
+        if (!fileDownloadURL.startsWith(`http://${(this.options.storageAdapter as any).options.bucket}`) && !fileDownloadURL.startsWith(`https://${(this.options.storageAdapter as any).options.bucket}`)) {
+          return { error: 'Invalid fileDownloadURL ' };
+        }
+
+        const upstream = await fetch(fileDownloadURL);
+        if (!upstream.ok || !upstream.body) {
+          return { error: `Failed to download file (status ${upstream.status})` };
+        }
+
+        const contentType = upstream.headers.get('content-type') || 'application/octet-stream';
+        const contentLength = upstream.headers.get('content-length');
+        const contentDisposition = upstream.headers.get('content-disposition');
+
+        response.setHeader('Content-Type', contentType);
+        if (contentLength) response.setHeader('Content-Length', contentLength);
+        if (contentDisposition) response.setHeader('Content-Disposition', contentDisposition);
+
+        //@ts-ignore Node 18+: convert Web stream to Node stream and pipe to response
+        Readable.fromWeb(upstream.body).pipe(response.blobStream());
+        return null;
       },
     });
 
