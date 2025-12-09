@@ -3,6 +3,8 @@ import { PluginOptions } from './types.js';
 import { AdminForthPlugin, AdminForthResourceColumn, AdminForthResource, Filters, IAdminForth, IHttpServer, suggestIfTypo } from "adminforth";
 import { Readable } from "stream";
 import { RateLimiter } from "adminforth";
+import { interpretResource } from 'adminforth';
+import { ActionCheckSource } from 'adminforth'; 
 
 const ADMINFORTH_NOT_YET_USED_TAG = 'adminforth-candidate-for-cleanup';
 
@@ -86,6 +88,7 @@ export default class UploadPlugin extends AdminForthPlugin {
       minShowWidth: this.options.preview?.minShowWidth,
       generationPrompt: this.options.generation?.generationPrompt,
       recorPkFieldName: this.resourceConfig.columns.find((column: any) => column.primaryKey)?.name,
+      pathColumnName: this.options.pathColumnName,
     };
     // define components which will be imported from other components
     this.componentPath('imageGenerator.vue');
@@ -424,6 +427,26 @@ export default class UploadPlugin extends AdminForthPlugin {
         return {
           files: Array.isArray(files) ? files : [files],
         };
+      },
+    });
+
+    server.endpoint({
+      method: 'POST',
+      path: `/plugin/${this.pluginInstanceId}/get-file-download-url`,
+      handler: async ({ body, adminUser }) => {
+        const { filePath } = body;
+        if (!filePath) {
+          return { error: 'Missing filePath' };
+        }
+        const allowedActions = await interpretResource( adminUser, this.resourceConfig, '', ActionCheckSource.CustomActionRequest, this.adminforth  )
+        if (allowedActions.allowedActions.create === true || allowedActions.allowedActions.edit === true) {
+          const url = await this.options.storageAdapter.getDownloadUrl(filePath, 1800);
+    
+          return {
+            url,
+          };
+        }
+        return { error: 'You do not have permission to download this file' };
       },
     });
 
