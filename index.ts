@@ -86,6 +86,7 @@ export default class UploadPlugin extends AdminForthPlugin {
       minShowWidth: this.options.preview?.minShowWidth,
       generationPrompt: this.options.generation?.generationPrompt,
       recorPkFieldName: this.resourceConfig.columns.find((column: any) => column.primaryKey)?.name,
+      pathColumnName: this.options.pathColumnName,
     };
     // define components which will be imported from other components
     this.componentPath('imageGenerator.vue');
@@ -423,6 +424,22 @@ export default class UploadPlugin extends AdminForthPlugin {
     
         return {
           files: Array.isArray(files) ? files : [files],
+        };
+      },
+    });
+
+    server.endpoint({
+      method: 'POST',
+      path: `/plugin/${this.pluginInstanceId}/get-file-download-url`,
+      handler: async ({ body, adminUser }) => {
+        const { filePath } = body;
+        if (!filePath) {
+          return { error: 'Missing filePath' };
+        }
+        const url = await this.options.storageAdapter.getDownloadUrl(filePath, 1800);
+    
+        return {
+          url,
         };
       },
     });
