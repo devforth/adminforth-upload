@@ -439,7 +439,6 @@ export default class UploadPlugin extends AdminForthPlugin {
           return { error: 'Missing filePath' };
         }
         const allowedActions = await interpretResource( adminUser, this.resourceConfig, '', ActionCheckSource.CustomActionRequest, this.adminforth  )
-        console.log('allowedActions', allowedActions);
         if (allowedActions.allowedActions.create === true || allowedActions.allowedActions.edit === true) {
           const url = await this.options.storageAdapter.getDownloadUrl(filePath, 1800);
     

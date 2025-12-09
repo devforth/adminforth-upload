@@ -141,7 +141,7 @@ onMounted(async () => {
     });
     if (resp.error) {
         adminforth.alert({
-          message: t('Error getting file url for firld {field}:', { field: props.meta.pathColumnName }),
+          message: t('Error getting file url for field {field}:', { field: props.meta.pathColumnName }),
           variant: 'danger'
         });
       return;
