@@ -141,12 +141,12 @@ onMounted(async () => {
     });
     if (resp.error) {
         adminforth.alert({
-          message: t('Error getting file url'),
+          message: t('Error getting file url for firld {field}:', { field: props.meta.pathColumnName }),
           variant: 'danger'
         });
       return;
     }
-     const filename = resp.url.split('/').pop()?.split('?')[0] || `file`;
+    const filename = resp.url.split('/').pop()?.split('?')[0] || `file`;
     const filenameParts = filename.split('.');
     const extension = filenameParts.length > 1 ? filenameParts.pop() : '';
     const nameWithoutExt = filenameParts.join('.');
@@ -158,9 +158,6 @@ onMounted(async () => {
     const res = await fetch(resp.url);
     const fileBlob = await res.blob();
     const file = new File([fileBlob], newFileName, { type: fileBlob.type });
-    if (!file) {
-      return;
-    }
     onFileChange({
       target: {
         files: [file],

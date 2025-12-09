@@ -3,6 +3,8 @@ import { PluginOptions } from './types.js';
 import { AdminForthPlugin, AdminForthResourceColumn, AdminForthResource, Filters, IAdminForth, IHttpServer, suggestIfTypo } from "adminforth";
 import { Readable } from "stream";
 import { RateLimiter } from "adminforth";
+import { interpretResource } from 'adminforth';
+import { ActionCheckSource } from 'adminforth'; 
 
 const ADMINFORTH_NOT_YET_USED_TAG = 'adminforth-candidate-for-cleanup';
 
@@ -436,11 +438,16 @@ export default class UploadPlugin extends AdminForthPlugin {
         if (!filePath) {
           return { error: 'Missing filePath' };
         }
-        const url = await this.options.storageAdapter.getDownloadUrl(filePath, 1800);
+        const allowedActions = await interpretResource( adminUser, this.resourceConfig, '', ActionCheckSource.CustomActionRequest, this.adminforth  )
+        console.log('allowedActions', allowedActions);
+        if (allowedActions.allowedActions.create === true || allowedActions.allowedActions.edit === true) {
+          const url = await this.options.storageAdapter.getDownloadUrl(filePath, 1800);
     
-        return {
-          url,
-        };
+          return {
+            url,
+          };
+        }
+        return { error: 'You do not have permission to download this file' };
       },
     });
 
