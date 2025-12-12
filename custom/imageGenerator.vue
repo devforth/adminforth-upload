@@ -248,7 +248,6 @@ onMounted(async () => {
 
     if (resp?.files?.length) {
       attachmentFiles.value = resp.files;
-      console.log('attachmentFiles', attachmentFiles.value);
     }
   } catch (err) {
     console.error('Failed to fetch attachment files', err);
@@ -337,7 +336,7 @@ async function generateImages() {
   let error = null;
   try {
     resp = await callAdminForthApi({
-      path: `/plugin/${props.meta.pluginInstanceId}/generate_images`,
+      path: `/plugin/${props.meta.pluginInstanceId}/create-image-generation-job`,
       method: 'POST',
       body: {
         prompt: prompt.value,
@@ -346,16 +345,13 @@ async function generateImages() {
     });
   } catch (e) {
     console.error(e);
-  } finally {
-    clearInterval(ticker);
-    loadingTimer.value = null;
-    loading.value = false;
   }
+
   if (resp?.error) {
     error = resp.error;
   }
   if (!resp) {
-    error = $t('Error generating images, something went wrong');
+    error = $t('Error creating image generation job');
   }
 
   if (error) {
@@ -371,10 +367,52 @@ async function generateImages() {
     return;
   }
 
+  const jobId = resp.jobId;
+  let jobStatus = null;
+  let jobResponse = null;
+  do {
+    jobResponse = await callAdminForthApi({
+      path: `/plugin/${props.meta.pluginInstanceId}/get-image-generation-job-status`,
+      method: 'POST',
+      body: { jobId },
+    });
+    if (jobResponse?.error) {
+      error = jobResponse.error;
+      break;
+    };
+    jobStatus = jobResponse?.job?.status;
+    if (jobStatus === 'failed') {
+      error = jobResponse?.job?.error || $t('Image generation job failed');
+    }
+    if (jobStatus === 'timeout') {
+      error = jobResponse?.job?.error || $t('Image generation job timeout');
+    }
+    await new Promise((resolve) => setTimeout(resolve, 2000));
+  } while (jobStatus === 'in_progress')
+
+  if (error) {
+      adminforth.alert({
+        message: error,
+        variant: 'danger',
+        timeout: 'unlimited',
+      });
+      clearInterval(ticker);
+      loadingTimer.value = null;
+      loading.value = false;
+    return;
+  }
+
+  const respImages = jobResponse?.job?.images || [];
+
   images.value = [
     ...images.value,
-    ...resp.images,
+    ...respImages,
   ];
+
+  clearInterval(ticker);
+  loadingTimer.value = null;
+  loading.value = false;
+  
 
   // images.value = [
   //   'https://via.placeholder.com/600x400?text=Image+1',
@@ -386,7 +424,6 @@ async function generateImages() {
   caurosel.value = new Carousel(
     document.getElementById('gallery'), 
     images.value.map((img, index) => {
-      console.log('mapping image', img, index);
       return {
         image: img,
         el: document.getElementById('gallery').querySelector(`[data-carousel-item]:nth-child(${index + 1})`),
