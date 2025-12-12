@@ -4,6 +4,8 @@ import { AdminForthPlugin, AdminForthResourceColumn, AdminForthResource, Filters
 import { Readable } from "stream";
 import { RateLimiter } from "adminforth";
 import { randomUUID } from "crypto";
+import { interpretResource } from 'adminforth';
+import { ActionCheckSource } from 'adminforth'; 
 
 const ADMINFORTH_NOT_YET_USED_TAG = 'adminforth-candidate-for-cleanup';
 const jobs = new Map();
@@ -164,32 +166,11 @@ export default class UploadPlugin extends AdminForthPlugin {
       minShowWidth: this.options.preview?.minShowWidth,
       generationPrompt: this.options.generation?.generationPrompt,
       recorPkFieldName: this.resourceConfig.columns.find((column: any) => column.primaryKey)?.name,
+      pathColumnName: this.options.pathColumnName,
     };
     // define components which will be imported from other components
     this.componentPath('imageGenerator.vue');
 
-    const virtualColumn: AdminForthResourceColumn = {
-      virtual: true,
-      name: `uploader_${this.pluginInstanceId}`,
-      components: {
-        edit: {
-          file: this.componentPath('uploader.vue'),
-          meta: pluginFrontendOptions,
-        },
-        create: {
-          file: this.componentPath('uploader.vue'),
-          meta: pluginFrontendOptions,
-        },
-      },
-      showIn: {
-        create: true,
-        edit: true,
-        list: false,
-        show: false,
-        filter: false,
-      },
-    };
-   
     if (!resourceConfig.columns[pathColumnIndex].components) {
       resourceConfig.columns[pathColumnIndex].components = {};
     }
@@ -208,38 +189,18 @@ export default class UploadPlugin extends AdminForthPlugin {
       };
     }
 
-    // insert virtual column after path column if it is not already there
-    const virtualColumnIndex = resourceConfig.columns.findIndex((column: any) => column.name === virtualColumn.name);
-    if (virtualColumnIndex === -1) {
-      resourceConfig.columns.splice(pathColumnIndex + 1, 0, virtualColumn);
+    resourceConfig.columns[pathColumnIndex].components.create = {
+      file: this.componentPath('uploader.vue'),
+      meta: pluginFrontendOptions,
     }
 
-
-    // if showIn of path column has 'create' or 'edit' remove it but use it for virtual column
-    if (pathColumn.showIn && (pathColumn.showIn.create !== undefined)) {
-      virtualColumn.showIn = { ...virtualColumn.showIn, create: pathColumn.showIn.create };
-      pathColumn.showIn = { ...pathColumn.showIn, create: false };
+    resourceConfig.columns[pathColumnIndex].components.edit = {
+      file: this.componentPath('uploader.vue'),
+      meta: pluginFrontendOptions,
     }
-
-    if (pathColumn.showIn && (pathColumn.showIn.edit !== undefined)) {
-      virtualColumn.showIn = { ...virtualColumn.showIn, edit: pathColumn.showIn.edit };
-      pathColumn.showIn = { ...pathColumn.showIn, edit: false };
-    }
-
-    virtualColumn.required = pathColumn.required;
-    virtualColumn.label = pathColumn.label;
-    virtualColumn.editingNote = pathColumn.editingNote;
 
     // ** HOOKS FOR CREATE **//
 
-    // add beforeSave hook to save virtual column to path column
-    resourceConfig.hooks.create.beforeSave.push(async ({ record }: { record: any }) => {
-      if (record[virtualColumn.name]) {
-        record[pathColumnName] = record[virtualColumn.name];
-        delete record[virtualColumn.name];
-      }
-      return { ok: true };
-    });
 
     // in afterSave hook, aremove tag adminforth-not-yet-used from the file
     resourceConfig.hooks.create.afterSave.push(async ({ record }: { record: any }) => {
@@ -248,7 +209,11 @@ export default class UploadPlugin extends AdminForthPlugin {
       if (record[pathColumnName]) {
         process.env.HEAVY_DEBUG && console.log('🪥🪥 remove ObjectTagging', record[pathColumnName]);
         // let it crash if it fails: this is a new file which just was uploaded.
-        await this.options.storageAdapter.markKeyForNotDeletation(record[pathColumnName]);
+        if (this.options.storageAdapter.markKeyForNotDeletion !== undefined) {
+          await this.options.storageAdapter.markKeyForNotDeletion(record[pathColumnName]);
+        } else {
+          await this.options.storageAdapter.markKeyForNotDeletation(record[pathColumnName]);
+        }
       }
       return { ok: true };
     });
@@ -291,7 +256,11 @@ export default class UploadPlugin extends AdminForthPlugin {
     resourceConfig.hooks.delete.afterSave.push(async ({ record }: { record: any }) => {
       if (record[pathColumnName]) {
         try {
-          await this.options.storageAdapter.markKeyForDeletation(record[pathColumnName]);
+          if (this.options.storageAdapter.markKeyForDeletion !== undefined) {
+            await this.options.storageAdapter.markKeyForDeletion(record[pathColumnName]);
+          } else {
+            await this.options.storageAdapter.markKeyForDeletation(record[pathColumnName]);
+          }
         } catch (e) {
           // file might be e.g. already deleted, so we catch error
           console.error(`Error setting tag ${ADMINFORTH_NOT_YET_USED_TAG} to true for object ${record[pathColumnName]}. File will not be auto-cleaned up`, e);
@@ -303,33 +272,33 @@ export default class UploadPlugin extends AdminForthPlugin {
 
     // ** HOOKS FOR EDIT **//
 
-    // beforeSave
-    resourceConfig.hooks.edit.beforeSave.push(async ({ record }: { record: any }) => {
-      // null is when value is removed
-      if (record[virtualColumn.name] || record[virtualColumn.name] === null) {
-        record[pathColumnName] = record[virtualColumn.name];
-      }
-      return { ok: true };
-    })
 
 
     // add edit postSave hook to delete old file and remove tag from new file
     resourceConfig.hooks.edit.afterSave.push(async ({ updates, oldRecord }: { updates: any, oldRecord: any }) => {
 
-      if (updates[virtualColumn.name] || updates[virtualColumn.name] === null) {
+      if (updates[pathColumnName] || updates[pathColumnName] === null) {
         if (oldRecord[pathColumnName]) {
           // put tag to delete old file
           try {
-            await this.options.storageAdapter.markKeyForDeletation(oldRecord[pathColumnName]);
+            if (this.options.storageAdapter.markKeyForDeletion !== undefined) {
+              await this.options.storageAdapter.markKeyForDeletion(oldRecord[pathColumnName]);
+            } else {
+              await this.options.storageAdapter.markKeyForDeletation(oldRecord[pathColumnName]);
+            }
           } catch (e) {
             // file might be e.g. already deleted, so we catch error
             console.error(`Error setting tag ${ADMINFORTH_NOT_YET_USED_TAG} to true for object ${oldRecord[pathColumnName]}. File will not be auto-cleaned up`, e);
           }
         }
-        if (updates[virtualColumn.name] !== null) {
+        if (updates[pathColumnName] !== null) {
           // remove tag from new file
           // in this case we let it crash if it fails: this is a new file which just was uploaded. 
+        if (this.options.storageAdapter.markKeyForNotDeletion !== undefined) {
+          await this.options.storageAdapter.markKeyForNotDeletion(updates[pathColumnName]);
+        } else {
           await  this.options.storageAdapter.markKeyForNotDeletation(updates[pathColumnName]);
+        }
         }
       }
       return { ok: true };
@@ -489,6 +458,26 @@ export default class UploadPlugin extends AdminForthPlugin {
         return {
           files: Array.isArray(files) ? files : [files],
         };
+      },
+    });
+
+    server.endpoint({
+      method: 'POST',
+      path: `/plugin/${this.pluginInstanceId}/get-file-download-url`,
+      handler: async ({ body, adminUser }) => {
+        const { filePath } = body;
+        if (!filePath) {
+          return { error: 'Missing filePath' };
+        }
+        const allowedActions = await interpretResource( adminUser, this.resourceConfig, '', ActionCheckSource.CustomActionRequest, this.adminforth  )
+        if (allowedActions.allowedActions.create === true || allowedActions.allowedActions.edit === true) {
+          const url = await this.options.storageAdapter.getDownloadUrl(filePath, 1800);
+    
+          return {
+            url,
+          };
+        }
+        return { error: 'You do not have permission to download this file' };
       },
     });
 
