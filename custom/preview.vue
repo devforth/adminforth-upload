@@ -1,31 +1,36 @@
 <template>
   <div>
-    <template v-if="url">
-      <img 
-        v-if="contentType && contentType.startsWith('image')"
-        :src="url" 
-        class="rounded-md" 
-        :style="[maxWidth, minWidth]"
-        ref="img"
-        @click.stop="zoom.open()" 
-      />
-      <video 
-        v-else-if="contentType && contentType.startsWith('video')"
-        :src="url" 
-        class="rounded-md" 
-        controls
-        @click.stop >
-      </video>
-      
-      <a v-else :href="url" target="_blank"
-         class="flex gap-1 items-center py-1 px-3 me-2 text-sm font-medium text-gray-900 focus:outline-none bg-white rounded border border-gray-300 hover:bg-gray-100 hover:text-lightPrimary focus:z-10 focus:ring-4 focus:ring-gray-100 dark:focus:ring-gray-700 dark:bg-darkListTable dark:text-gray-400 dark:border-gray-600 dark:hover:text-white dark:hover:bg-gray-700 rounded-default"
-      >
-        <!-- download file icon -->
-        <svg class="w-4 h-4 me-2" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-          <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
-        </svg>
-        {{ $t('Download file') }}
-      </a>
+    <template v-if="urls.length">
+      <div class="flex flex-wrap gap-2 items-start">
+        <template v-for="(u, i) in urls" :key="`${u}-${i}`">
+          <img
+            v-if="guessContentTypeFromUrl(u)?.startsWith('image')"
+            :src="u"
+            class="rounded-md cursor-zoom-in"
+            :style="[maxWidth, minWidth]"
+            ref="img"
+            @click.stop="openZoom(i)"
+          />
+          <video
+            v-else-if="guessContentTypeFromUrl(u)?.startsWith('video')"
+            :src="u"
+            class="rounded-md"
+            controls
+            @click.stop
+          />
+          <a
+            v-else
+            :href="u"
+            target="_blank"
+            class="flex gap-1 items-center py-1 px-3 me-2 text-sm font-medium text-gray-900 focus:outline-none bg-white rounded border border-gray-300 hover:bg-gray-100 hover:text-lightPrimary focus:z-10 focus:ring-4 focus:ring-gray-100 dark:focus:ring-gray-700 dark:bg-darkListTable dark:text-gray-400 dark:border-gray-600 dark:hover:text-white dark:hover:bg-gray-700 rounded-default"
+          >
+            <svg class="w-4 h-4 me-2" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+              <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+            </svg>
+            {{ $t('Download file') }}
+          </a>
+        </template>
+      </div>
     </template>
     
     
@@ -74,8 +79,10 @@ const props = defineProps({
 const trueContentType  = ref(null);
 
 onMounted(async () => {
-   // try to get HEAD request
-   try {
+  // try to get HEAD request (single url only). For arrays we just guess by extension.
+  if (!url.value) return;
+  if (Array.isArray(url.value)) return;
+  try {
     const response = await fetch(url.value, {
       method: 'HEAD',
       mode: 'cors',
@@ -101,6 +108,11 @@ const url = computed(() => {
   return props.record[`previewUrl_${props.meta.pluginInstanceId}`];
 });
 
+const urls = computed(() => {
+  if (!url.value) return [];
+  return Array.isArray(url.value) ? url.value : [url.value];
+});
+
 const maxWidth = computed(() => {
   const isShowPage = route.path.includes('/show/');
   const width = isShowPage 
@@ -124,6 +136,7 @@ const guessedContentType = computed(() => {
   if (!url.value) {
     return null;
   }
+  if (Array.isArray(url.value)) return null;
   const u = new URL(url.value, url.value.startsWith('http') ? undefined : location.origin);
   return guessContentType(u.pathname);
 });
@@ -141,6 +154,15 @@ function guessContentType(url) {
   }
 }
 
+function guessContentTypeFromUrl(u) {
+  if (!u) return null;
+  try {
+    const parsed = new URL(u, u.startsWith('http') ? undefined : location.origin);
+    return guessContentType(parsed.pathname);
+  } catch (e) {
+    return guessContentType(u);
+  }
+}
 
 watch([contentType], async ([contentType]) => {
   // since content type might change after true guessing (HEAD request might be slow) we need to try initializing zoom again
@@ -148,12 +170,19 @@ watch([contentType], async ([contentType]) => {
     zoom.value.detach();
   }
   await nextTick();
-  if (contentType?.startsWith('image')) {
-    zoom.value = mediumZoom(img.value, {
-      margin: 24,
-    });
+  // For arrays we use click-to-open per image, for single we keep existing behavior.
+  if (contentType?.startsWith('image') && !Array.isArray(url.value)) {
+    zoom.value = mediumZoom(img.value, { margin: 24 });
   }
 
 }, { immediate: true });
+
+function openZoom(index) {
+  if (!urls.value?.length) return;
+  const el = Array.isArray(img.value) ? img.value[index] : img.value;
+  if (!el) return;
+  const z = mediumZoom(el, { margin: 24 });
+  z.open();
+}
 
 </script>
