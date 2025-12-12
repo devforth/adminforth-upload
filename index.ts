@@ -32,6 +32,29 @@ export default class UploadPlugin extends AdminForthPlugin {
     }
   }
 
+  private normalizePaths(value: any): string[] {
+    if (!value) return [];
+    if (Array.isArray(value)) return value.filter(Boolean).map(String);
+    return [String(value)];
+  }
+
+  private async callStorageAdapter(primaryMethod: string, fallbackMethod: string, filePath: string) {
+    const adapter: any = this.options.storageAdapter as any;
+    const fn = adapter?.[primaryMethod] ?? adapter?.[fallbackMethod];
+    if (typeof fn !== 'function') {
+      throw new Error(`Storage adapter is missing method "${primaryMethod}" (fallback "${fallbackMethod}")`);
+    }
+    await fn.call(adapter, filePath);
+  }
+
+  private markKeyForNotDeletion(filePath: string) {
+    return this.callStorageAdapter('markKeyForNotDeletion', 'markKeyForNotDeletation', filePath);
+  }
+
+  private markKeyForDeletion(filePath: string) {
+    return this.callStorageAdapter('markKeyForDeletion', 'markKeyForDeletation', filePath);
+  }
+
   instanceUniqueRepresentation(pluginOptions: any) : string {
     return `${pluginOptions.pathColumnName}`;
   }
@@ -42,13 +65,19 @@ export default class UploadPlugin extends AdminForthPlugin {
   }
 
   async genPreviewUrl(record: any) {
-    if (this.options.preview?.previewUrl) {
-      record[`previewUrl_${this.pluginInstanceId}`] = this.options.preview.previewUrl({ filePath: record[this.options.pathColumnName] });
-      return;
-    }
-    const previewUrl = await this.options.storageAdapter.getDownloadUrl(record[this.options.pathColumnName], 1800);
+    const value = record?.[this.options.pathColumnName];
+    const paths = this.normalizePaths(value);
+    if (!paths.length) return;
 
-    record[`previewUrl_${this.pluginInstanceId}`] = previewUrl;
+    const makeUrl = async (filePath: string) => {
+      if (this.options.preview?.previewUrl) {
+        return this.options.preview.previewUrl({ filePath });
+      }
+      return await this.options.storageAdapter.getDownloadUrl(filePath, 1800);
+    };
+
+    const urls = await Promise.all(paths.map(makeUrl));
+    record[`previewUrl_${this.pluginInstanceId}`] = Array.isArray(value) ? urls : urls[0];
   }
 
   async modifyResourceConfig(adminforth: IAdminForth, resourceConfig: AdminForthResource) {
@@ -128,15 +157,12 @@ export default class UploadPlugin extends AdminForthPlugin {
     resourceConfig.hooks.create.afterSave.push(async ({ record }: { record: any }) => {
       process.env.HEAVY_DEBUG && console.log('💾💾  after save ', record?.id);
       
-      if (record[pathColumnName]) {
-        process.env.HEAVY_DEBUG && console.log('🪥🪥 remove ObjectTagging', record[pathColumnName]);
+      const paths = this.normalizePaths(record?.[pathColumnName]);
+      await Promise.all(paths.map(async (p) => {
+        process.env.HEAVY_DEBUG && console.log('🪥🪥 remove ObjectTagging', p);
         // let it crash if it fails: this is a new file which just was uploaded.
-        if (this.options.storageAdapter.markKeyForNotDeletion !== undefined) {
-          await this.options.storageAdapter.markKeyForNotDeletion(record[pathColumnName]);
-        } else {
-          await this.options.storageAdapter.markKeyForNotDeletation(record[pathColumnName]);
-        }
-      }
+        await this.markKeyForNotDeletion(p);
+      }));
       return { ok: true };
     });
 
@@ -176,18 +202,15 @@ export default class UploadPlugin extends AdminForthPlugin {
 
     // add delete hook which sets tag adminforth-candidate-for-cleanup to true
     resourceConfig.hooks.delete.afterSave.push(async ({ record }: { record: any }) => {
-      if (record[pathColumnName]) {
+      const paths = this.normalizePaths(record?.[pathColumnName]);
+      await Promise.all(paths.map(async (p) => {
         try {
-          if (this.options.storageAdapter.markKeyForDeletion !== undefined) {
-            await this.options.storageAdapter.markKeyForDeletion(record[pathColumnName]);
-          } else {
-            await this.options.storageAdapter.markKeyForDeletation(record[pathColumnName]);
-          }
+          await this.markKeyForDeletion(p);
         } catch (e) {
           // file might be e.g. already deleted, so we catch error
-          console.error(`Error setting tag ${ADMINFORTH_NOT_YET_USED_TAG} to true for object ${record[pathColumnName]}. File will not be auto-cleaned up`, e);
+          console.error(`Error setting tag ${ADMINFORTH_NOT_YET_USED_TAG} to true for object ${p}. File will not be auto-cleaned up`, e);
         }
-      }
+      }));
       return { ok: true };
     });
 
@@ -200,28 +223,33 @@ export default class UploadPlugin extends AdminForthPlugin {
     resourceConfig.hooks.edit.afterSave.push(async ({ updates, oldRecord }: { updates: any, oldRecord: any }) => {
 
       if (updates[pathColumnName] || updates[pathColumnName] === null) {
-        if (oldRecord[pathColumnName]) {
+        const oldValue = oldRecord?.[pathColumnName];
+        const newValue = updates?.[pathColumnName];
+
+        const oldPaths = this.normalizePaths(oldValue);
+        const newPaths = newValue === null ? [] : this.normalizePaths(newValue);
+
+        const oldSet = new Set(oldPaths);
+        const newSet = new Set(newPaths);
+
+        const toDelete = oldPaths.filter((p) => !newSet.has(p));
+        const toKeep = newPaths.filter((p) => !oldSet.has(p));
+
+        await Promise.all(toDelete.map(async (p) => {
           // put tag to delete old file
           try {
-            if (this.options.storageAdapter.markKeyForDeletion !== undefined) {
-              await this.options.storageAdapter.markKeyForDeletion(oldRecord[pathColumnName]);
-            } else {
-              await this.options.storageAdapter.markKeyForDeletation(oldRecord[pathColumnName]);
-            }
+            await this.markKeyForDeletion(p);
           } catch (e) {
             // file might be e.g. already deleted, so we catch error
-            console.error(`Error setting tag ${ADMINFORTH_NOT_YET_USED_TAG} to true for object ${oldRecord[pathColumnName]}. File will not be auto-cleaned up`, e);
+            console.error(`Error setting tag ${ADMINFORTH_NOT_YET_USED_TAG} to true for object ${p}. File will not be auto-cleaned up`, e);
           }
-        }
-        if (updates[pathColumnName] !== null) {
+        }));
+
+        await Promise.all(toKeep.map(async (p) => {
           // remove tag from new file
-          // in this case we let it crash if it fails: this is a new file which just was uploaded. 
-        if (this.options.storageAdapter.markKeyForNotDeletion !== undefined) {
-          await this.options.storageAdapter.markKeyForNotDeletion(updates[pathColumnName]);
-        } else {
-          await  this.options.storageAdapter.markKeyForNotDeletation(updates[pathColumnName]);
-        }
-        }
+          // in this case we let it crash if it fails: this is a new file which just was uploaded.
+          await this.markKeyForNotDeletion(p);
+        }));
       }
       return { ok: true };
     });

@@ -24,7 +24,7 @@
         }"
       >
           <div class="flex flex-col items-center justify-center pt-5 pb-6">
-              <img v-if="imgPreview" :src="imgPreview" class="w-100 mt-4 rounded-lg h-40 object-contain" />
+              <img v-if="typeof imgPreview === 'string' && imgPreview" :src="imgPreview" class="w-100 mt-4 rounded-lg h-40 object-contain" />
 
               <svg v-else class="w-8 h-8 mb-4 text-gray-500 dark:text-gray-400 !text-lightDropzoneText dark:!text-darkDropzoneText" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 20 16">
                   <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 13h3a3 3 0 0 0 0-6h-.025A5.56 5.56 0 0 0 16 6.5 5.5 5.5 0 0 0 5.207 5.021C5.137 5.017 5.071 5 5 5a4 4 0 0 0 0 8h2.167M10 15V6m0 0L8 8m2-2 2 2"/>
@@ -66,7 +66,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref, onMounted, watch } from 'vue'
+import { computed, ref, onMounted, watch, getCurrentInstance } from 'vue'
 import { callAdminForthApi } from '@/utils'
 import { IconMagic } from '@iconify-prerendered/vue-mdi';
 import { useI18n } from 'vue-i18n';
@@ -75,7 +75,8 @@ import { useRoute } from 'vue-router';
 const route = useRoute();
 const { t } = useI18n();
 
-const inputId = computed(() => `dropzone-file-${props.meta.pluginInstanceId}`);
+const instanceUid = getCurrentInstance()?.uid ?? Math.floor(Math.random() * 1000000);
+const inputId = computed(() => `dropzone-file-${props.meta.pluginInstanceId}-${instanceUid}`);
 
 import ImageGenerator from '@@/plugins/UploadPlugin/imageGenerator.vue';
 import adminforth from '@/adminforth';
@@ -84,6 +85,7 @@ import adminforth from '@/adminforth';
 const props = defineProps({
   meta: Object,
   record: Object,
+  value: [String, Number, Boolean, Object, Array, null],
 })
 
 const emit = defineEmits([
@@ -102,10 +104,9 @@ const progress = ref(0);
 
 const uploaded = ref(false);
 const uploadedSize = ref(0);
-
 const downloadFileUrl = ref('');
 
-watch(() => uploaded, (value) => {
+watch(uploaded, (value) => {
   emit('update:emptiness', !value);
 });
 
@@ -129,7 +130,8 @@ onMounted(async () => {
     queryValues = {};
   }
 
-  if (queryValues[props.meta.pathColumnName]) {
+
+  if (typeof queryValues?.[props.meta.pathColumnName] === 'string' && queryValues[props.meta.pathColumnName]) {
     downloadFileUrl.value = queryValues[props.meta.pathColumnName];
 
     const resp = await callAdminForthApi({
@@ -163,7 +165,28 @@ onMounted(async () => {
         files: [file],
       },
     });
-  } else if (props.record[previewColumnName]) {
+  } 
+
+  const existingValue = (props as any).value;
+  const existingFilePath =
+    typeof existingValue === 'string' && existingValue.trim() ? existingValue : null;
+
+  if (!uploaded.value && existingFilePath) {
+    const resp = await callAdminForthApi({
+      path: `/plugin/${props.meta.pluginInstanceId}/get-file-download-url`,
+      method: 'POST',
+      body: { filePath: existingFilePath },
+    });
+
+    if (!resp?.error && resp?.url) {
+      imgPreview.value = resp.url;
+      uploaded.value = true;
+      emit('update:emptiness', false);
+      return;
+    }
+  }
+
+  if (!uploaded.value && props.record?.[previewColumnName]) {
     imgPreview.value = props.record[previewColumnName];
     uploaded.value = true;
     emit('update:emptiness', false);
