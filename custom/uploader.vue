@@ -103,6 +103,8 @@ const progress = ref(0);
 const uploaded = ref(false);
 const uploadedSize = ref(0);
 
+const downloadFileUrl = ref('');
+
 watch(() => uploaded, (value) => {
   emit('update:emptiness', !value);
 });
@@ -118,9 +120,50 @@ function uploadGeneratedImage(imgBlob) {
   });
 }
 
-onMounted(() => {
+onMounted(async () => {
   const previewColumnName = `previewUrl_${props.meta.pluginInstanceId}`;
-  if (props.record[previewColumnName]) {
+  let queryValues;
+  try { 
+    queryValues = JSON.parse(atob(route.query.values as string));
+  } catch (e) {
+    queryValues = {};
+  }
+
+  if (queryValues[props.meta.pathColumnName]) {
+    downloadFileUrl.value = queryValues[props.meta.pathColumnName];
+
+    const resp = await callAdminForthApi({
+        path: `/plugin/${props.meta.pluginInstanceId}/get-file-download-url`,
+        method: 'POST',
+        body: {
+          filePath: queryValues[props.meta.pathColumnName]
+        },
+    });
+    if (resp.error) {
+        adminforth.alert({
+          message: t('Error getting file url for field {field}:', { field: props.meta.pathColumnName }),
+          variant: 'danger'
+        });
+      return;
+    }
+    const filename = resp.url.split('/').pop()?.split('?')[0] || `file`;
+    const filenameParts = filename.split('.');
+    const extension = filenameParts.length > 1 ? filenameParts.pop() : '';
+    const nameWithoutExt = filenameParts.join('.');
+    const newFileName = extension 
+      ? `${nameWithoutExt}_copy_${Date.now()}.${extension}`
+      : `${filename}_copy_${Date.now()}`;
+
+
+    const res = await fetch(resp.url);
+    const fileBlob = await res.blob();
+    const file = new File([fileBlob], newFileName, { type: fileBlob.type });
+    onFileChange({
+      target: {
+        files: [file],
+      },
+    });
+  } else if (props.record[previewColumnName]) {
     imgPreview.value = props.record[previewColumnName];
     uploaded.value = true;
     emit('update:emptiness', false);
