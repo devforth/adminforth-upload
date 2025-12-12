@@ -376,20 +376,22 @@ async function generateImages() {
       method: 'POST',
       body: { jobId },
     });
-    if (jobResponse?.error) {
-      error = jobResponse.error;
-      break;
-    };
-    jobStatus = jobResponse?.job?.status;
-    if (jobStatus === 'failed') {
-      error = jobResponse?.job?.error || $t('Image generation job failed');
-    }
-    if (jobStatus === 'timeout') {
-      error = jobResponse?.job?.error || $t('Image generation job timeout');
+    if (jobResponse !== null) {
+      if (jobResponse?.error) {
+        error = jobResponse.error;
+        break;
+      };
+      jobStatus = jobResponse?.job?.status;
+      if (jobStatus === 'failed') {
+        error = jobResponse?.job?.error || $t('Image generation job failed');
+      }
+      if (jobStatus === 'timeout') {
+        error = jobResponse?.job?.error || $t('Image generation job timeout');
+      }
     }
     await new Promise((resolve) => setTimeout(resolve, 2000));
-  } while (jobStatus === 'in_progress')
-
+  } while (jobStatus === 'in_progress' || jobStatus === null)
+  
   if (error) {
       adminforth.alert({
         message: error,
