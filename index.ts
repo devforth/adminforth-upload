@@ -20,6 +20,8 @@ export default class UploadPlugin extends AdminForthPlugin {
 
   rateLimiter: RateLimiter;
 
+  getFileDownloadUrl: ((path: string) => Promise<string>); 
+
   constructor(options: PluginOptions) {
     super(options, import.meta.url);
     this.options = options;
@@ -27,6 +29,12 @@ export default class UploadPlugin extends AdminForthPlugin {
     // for calcualting average time
     this.totalCalls = 0;
     this.totalDuration = 0;
+    this.getFileDownloadUrl = async (path: string, expiresInSeconds: number = 1800) : Promise<string> => {
+      if (!path) {
+        return '';
+      }
+      return this.options.storageAdapter.getDownloadUrl(path, expiresInSeconds);
+    }
     if (this.options.generation?.rateLimit?.limit) {
     this.rateLimiter = new RateLimiter(this.options.generation.rateLimit?.limit)
     }
