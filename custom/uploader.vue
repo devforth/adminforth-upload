@@ -171,7 +171,11 @@ onMounted(async () => {
   const existingFilePath =
     typeof existingValue === 'string' && existingValue.trim() ? existingValue : null;
 
-  if (!uploaded.value && existingFilePath) {
+  if (!uploaded.value && props.record?.[previewColumnName]) {
+    imgPreview.value = props.record[previewColumnName];
+    uploaded.value = true;
+    emit('update:emptiness', false);
+  } else if (!uploaded.value && existingFilePath) {
     const resp = await callAdminForthApi({
       path: `/plugin/${props.meta.pluginInstanceId}/get-file-download-url`,
       method: 'POST',
@@ -186,11 +190,6 @@ onMounted(async () => {
     }
   }
 
-  if (!uploaded.value && props.record?.[previewColumnName]) {
-    imgPreview.value = props.record[previewColumnName];
-    uploaded.value = true;
-    emit('update:emptiness', false);
-  }
 });
 
 const allowedExtensionsLabel = computed(() => {
