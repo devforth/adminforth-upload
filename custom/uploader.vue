@@ -169,10 +169,24 @@ onMounted(async () => {
 
   const existingValue = (props as any).value;
   const existingFilePath =
-    typeof existingValue === 'string' && existingValue.trim() ? existingValue : null;
-
+  typeof existingValue === 'string' && existingValue.trim() ? existingValue : null;
   if (!uploaded.value && props.record?.[previewColumnName]) {
-    imgPreview.value = props.record[previewColumnName];
+    if (Array.isArray(props.record[previewColumnName]) && props.record[previewColumnName].length > 0) {
+      const resp = await callAdminForthApi({
+        path: `/plugin/${props.meta.pluginInstanceId}/get-file-preview-url`,
+        method: 'POST',
+        body: { filePath: existingFilePath },
+      });
+      if (!resp?.error && resp?.url) {
+        imgPreview.value = resp.url;
+        uploaded.value = true;
+        emit('update:emptiness', false);
+        return;
+      }
+      imgPreview.value = resp.url;
+    } else {
+        imgPreview.value = props.record[previewColumnName];
+    }
     uploaded.value = true;
     emit('update:emptiness', false);
   } else if (!uploaded.value && existingFilePath) {

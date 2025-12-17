@@ -40,7 +40,6 @@ export default class UploadPlugin extends AdminForthPlugin {
     }
 
     this.getFileUploadUrl = async ( originalFilename, contentType, size, originalExtension, recordPk ) : Promise<{ uploadUrl: string, tagline?: string, filePath?: string, uploadExtraParams?: Record<string, string>, previewUrl?: string, error?: string } | {error: string}> => {
-
         if (this.options.allowedFileExtensions && !this.options.allowedFileExtensions.includes(originalExtension.toLowerCase())) {
           return {
             error: `File extension "${originalExtension}" is not allowed, allowed extensions are: ${this.options.allowedFileExtensions.join(', ')}`
@@ -525,6 +524,23 @@ export default class UploadPlugin extends AdminForthPlugin {
         return { error: 'You do not have permission to download this file' };
       },
     });
+
+    server.endpoint({
+      method: 'POST',
+      path: `/plugin/${this.pluginInstanceId}/get-file-preview-url`,
+      handler: async ({ body, adminUser }) => {
+        const { filePath } = body;
+        if (!filePath) {
+          return { error: 'Missing filePath' };
+        }
+        if (this.options.preview?.previewUrl) {
+          const url = this.options.preview.previewUrl({ filePath });
+          return { url };
+        }
+        return { error: 'failed to generate preview URL' };
+      },
+    });
+
 
   }
   
