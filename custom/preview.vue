@@ -38,7 +38,7 @@
 </template>
 
 <style>
-  .medium-zoom-image {
+  .medium-zoom-image--opened {
     z-index: 999999;
     background: rgba(0, 0, 0, 0.8);
   }
