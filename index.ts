@@ -23,6 +23,8 @@ export default class UploadPlugin extends AdminForthPlugin {
 
   getFileDownloadUrl: ((path: string) => Promise<string>); 
 
+  getFileUploadUrl: ( originalFilename, contentType, size, originalExtension, recordPk ) => Promise<{ uploadUrl: string, tagline?: string, filePath?: string, uploadExtraParams?: Record<string, string>, previewUrl?: string, error?: string } | {error: string}>;
+
   constructor(options: PluginOptions) {
     super(options, import.meta.url);
     this.options = options;
@@ -36,6 +38,46 @@ export default class UploadPlugin extends AdminForthPlugin {
       }
       return this.options.storageAdapter.getDownloadUrl(path, expiresInSeconds);
     }
+
+    this.getFileUploadUrl = async ( originalFilename, contentType, size, originalExtension, recordPk ) : Promise<{ uploadUrl: string, tagline?: string, filePath?: string, uploadExtraParams?: Record<string, string>, previewUrl?: string, error?: string } | {error: string}> => {
+
+        if (this.options.allowedFileExtensions && !this.options.allowedFileExtensions.includes(originalExtension.toLowerCase())) {
+          return {
+            error: `File extension "${originalExtension}" is not allowed, allowed extensions are: ${this.options.allowedFileExtensions.join(', ')}`
+          };
+        }
+
+        let record = undefined;
+        if (recordPk) {
+          // get record by recordPk
+          const pkName = this.resourceConfig.columns.find((column: any) => column.primaryKey)?.name;
+          record = await this.adminforth.resource(this.resourceConfig.resourceId).get(
+            [Filters.EQ(pkName, recordPk)]
+          )
+        }
+
+        const filePath: string = this.options.filePath({ originalFilename, originalExtension, contentType, record });
+        if (filePath.startsWith('/')) {
+          throw new Error('s3Path should not start with /, please adjust s3path function to not return / at the start of the path');
+        }
+        const { uploadUrl, uploadExtraParams } = await this.options.storageAdapter.getUploadSignedUrl(filePath, contentType, 1800);
+        let previewUrl;
+        if (this.options.preview?.previewUrl) {
+          previewUrl = this.options.preview.previewUrl({ filePath });
+        } else {
+          previewUrl = await this.options.storageAdapter.getDownloadUrl(filePath, 1800);
+        }
+        const tagline = `${ADMINFORTH_NOT_YET_USED_TAG}=true`;
+        
+        return {
+          uploadUrl,
+          tagline,
+          filePath,
+          uploadExtraParams,
+          previewUrl,
+        };
+    };
+
     if (this.options.generation?.rateLimit?.limit) {
       this.rateLimiter = new RateLimiter(this.options.generation.rateLimit?.limit)
     }
@@ -369,41 +411,8 @@ export default class UploadPlugin extends AdminForthPlugin {
       handler: async ({ body }) => {
         const { originalFilename, contentType, size, originalExtension, recordPk } = body;
 
-        if (this.options.allowedFileExtensions && !this.options.allowedFileExtensions.includes(originalExtension.toLowerCase())) {
-          return {
-            error: `File extension "${originalExtension}" is not allowed, allowed extensions are: ${this.options.allowedFileExtensions.join(', ')}`
-          };
-        }
-
-        let record = undefined;
-        if (recordPk) {
-          // get record by recordPk
-          const pkName = this.resourceConfig.columns.find((column: any) => column.primaryKey)?.name;
-          record = await this.adminforth.resource(this.resourceConfig.resourceId).get(
-            [Filters.EQ(pkName, recordPk)]
-          )
-        }
-
-        const filePath: string = this.options.filePath({ originalFilename, originalExtension, contentType, record });
-        if (filePath.startsWith('/')) {
-          throw new Error('s3Path should not start with /, please adjust s3path function to not return / at the start of the path');
-        }
-        const { uploadUrl, uploadExtraParams } = await this.options.storageAdapter.getUploadSignedUrl(filePath, contentType, 1800);
-        let previewUrl;
-        if (this.options.preview?.previewUrl) {
-          previewUrl = this.options.preview.previewUrl({ filePath });
-        } else {
-          previewUrl = await this.options.storageAdapter.getDownloadUrl(filePath, 1800);
-        }
-        const tagline = `${ADMINFORTH_NOT_YET_USED_TAG}=true`;
+        return this.getFileUploadUrl( originalFilename, contentType, size, originalExtension, recordPk );
         
-        return {
-          uploadUrl,
-          tagline,
-          filePath,
-          uploadExtraParams,
-          previewUrl,
-        };
       }
     });
 
