@@ -97,11 +97,11 @@ export default class UploadPlugin extends AdminForthPlugin {
     await fn.call(adapter, filePath);
   }
 
-  private markKeyForNotDeletion(filePath: string) {
+  public markKeyForNotDeletion(filePath: string) {
     return this.callStorageAdapter('markKeyForNotDeletion', 'markKeyForNotDeletation', filePath);
   }
-
-  private markKeyForDeletion(filePath: string) {
+  
+  public markKeyForDeletion(filePath: string) {
     return this.callStorageAdapter('markKeyForDeletion', 'markKeyForDeletation', filePath);
   }
 
