@@ -107,6 +107,7 @@ const uploadedSize = ref(0);
 const downloadFileUrl = ref('');
 
 watch(uploaded, (value) => {
+  console.log('Uploaded changed:', value);
   emit('update:emptiness', !value);
 });
 
@@ -185,10 +186,10 @@ onMounted(async () => {
       }
       imgPreview.value = resp.url;
     } else {
-        imgPreview.value = props.record[previewColumnName];
+      imgPreview.value = props.record[previewColumnName];
+      uploaded.value = true;
+      emit('update:emptiness', false);
     }
-    uploaded.value = true;
-    emit('update:emptiness', false);
   } else if (!uploaded.value && existingFilePath) {
     const resp = await callAdminForthApi({
       path: `/plugin/${props.meta.pluginInstanceId}/get-file-download-url`,
