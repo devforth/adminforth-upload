@@ -24,7 +24,7 @@
     "@aws-sdk/s3-request-presigner": "^3.629.0"
   },
   "peerDependencies": {
-    "adminforth": "^2.13.0-next.51"
+    "adminforth": "next"
   },
   "keywords": [
     "adminforth",
