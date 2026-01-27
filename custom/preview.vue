@@ -84,7 +84,10 @@ onMounted(async () => {
   if (Array.isArray(url.value)) return;
   try {
     const response = await fetch(url.value, {
-      method: 'HEAD',
+      method: 'GET',
+      headers: {
+        Range: 'bytes=0-0' // this approach is better then HEAD in terms of CDN/CORS, but same for efficiency as HEAD
+      },
       mode: 'cors',
     });
     const ct = response.headers.get('Content-Type');
