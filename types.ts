@@ -1,4 +1,4 @@
-import { AdminUser, ImageGenerationAdapter, StorageAdapter } from "adminforth";
+import { AdminUser, ImageGenerationAdapter, StorageAdapter, HttpExtra } from "adminforth";
 
 export type PluginOptions = {
 
@@ -155,3 +155,48 @@ export type PluginOptions = {
    */
   storageAdapter: StorageAdapter,
 }
+
+/**
+ * Parameters for the UploadPlugin.uploadFromBuffer API.
+ * Used to upload a binary file buffer, create a record in the resource,
+ * and return the stored path and preview URL.
+ */
+export type UploadFromBufferParams = {
+  /**
+   * Original file name including extension, used to derive storage path
+   * and validate the file extension. Example: "photo.png".
+   */
+  filename: string;
+
+  /**
+   * MIME type of the uploaded file. Will be used as Content-Type
+   * when uploading to the storage adapter. Example: "image/png".
+   */
+  contentType: string;
+
+  /**
+   * Binary contents of the file. Can be a Node.js Buffer, Uint8Array,
+   * or ArrayBuffer. The plugin uploads this directly without converting
+   * to base64.
+   */
+  buffer: Buffer | Uint8Array | ArrayBuffer;
+
+  /**
+   * Authenticated admin user on whose behalf the record is created.
+   * Passed through to AdminForth createResourceRecord hooks.
+   */
+  adminUser: AdminUser;
+
+  /**
+   * Optional HTTP context (headers, IP, etc.) forwarded to AdminForth
+   * createResourceRecord hooks. Needed to execute hooks on creation resource record for the upload.
+   */
+  extra?: HttpExtra;
+
+  /**
+   * Optional additional attributes to set on the created record
+   * together with the path column managed by the plugin.
+   * Values here do NOT affect the generated storage path.
+   */
+  recordAttributes?: Record<string, any>;
+};

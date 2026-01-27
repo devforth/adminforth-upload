@@ -1,5 +1,5 @@
 
-import { PluginOptions } from './types.js';
+import { PluginOptions, UploadFromBufferParams } from './types.js';
 import { AdminForthPlugin, AdminForthResourceColumn, AdminForthResource, Filters, IAdminForth, IHttpServer, suggestIfTypo, RateLimiter, AdminUser, HttpExtra } from "adminforth";
 import { Readable } from "stream";
 import { randomUUID } from "crypto";
@@ -554,19 +554,17 @@ export default class UploadPlugin extends AdminForthPlugin {
   }
   
 
+  /*
+   * Uploads a file from a buffer, creates a record in the resource, and returns the file path and preview URL.
+   */
   async uploadFromBuffer({
     filename,
     contentType,
     buffer,
     adminUser,
     extra,
-  }: {
-    filename: string;
-    contentType: string;
-    buffer: Buffer | Uint8Array | ArrayBuffer;
-    adminUser: AdminUser;
-    extra?: HttpExtra;
-  }): Promise<{ path: string; previewUrl: string }> {
+    recordAttributes,
+  }: UploadFromBufferParams): Promise<{ path: string; previewUrl: string }> {
     if (!filename || !contentType || !buffer) {
       throw new Error('filename, contentType and buffer are required');
     }
@@ -644,7 +642,7 @@ export default class UploadPlugin extends AdminForthPlugin {
       throw new Error(`Upload failed with status ${resp.status}: ${bodyText}`);
     }
 
-    await this.options.storageAdapter.markKeyForNotDeletation(filePath);
+    await this.markKeyForNotDeletion(filePath);
 
     if (!this.resourceConfig) {
       throw new Error('resourceConfig is not initialized yet');
@@ -652,14 +650,14 @@ export default class UploadPlugin extends AdminForthPlugin {
 
     const { error: createError } = await this.adminforth.createResourceRecord({
       resource: this.resourceConfig,
-      record: { [this.options.pathColumnName]: filePath },
+      record: { ...(recordAttributes ?? {}), [this.options.pathColumnName]: filePath },
       adminUser,
       extra,
     });
 
     if (createError) {
       try {
-        await this.options.storageAdapter.markKeyForDeletation(filePath);
+        await this.markKeyForDeletion(filePath);
       } catch (e) {
         // best-effort cleanup, ignore error
       }
