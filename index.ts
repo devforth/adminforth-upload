@@ -1,8 +1,7 @@
 
 import { PluginOptions } from './types.js';
-import { AdminForthPlugin, AdminForthResourceColumn, AdminForthResource, Filters, IAdminForth, IHttpServer, suggestIfTypo } from "adminforth";
+import { AdminForthPlugin, AdminForthResourceColumn, AdminForthResource, Filters, IAdminForth, IHttpServer, suggestIfTypo, RateLimiter, AdminUser, HttpExtra } from "adminforth";
 import { Readable } from "stream";
-import { RateLimiter } from "adminforth";
 
 const ADMINFORTH_NOT_YET_USED_TAG = 'adminforth-candidate-for-cleanup';
 
@@ -284,7 +283,7 @@ export default class UploadPlugin extends AdminForthPlugin {
       method: 'POST',
       path: `/plugin/${this.pluginInstanceId}/get_file_upload_url`,
       handler: async ({ body }) => {
-        const { originalFilename, contentType, size, originalExtension, recordPk } = body;
+        const { originalFilename, contentType, originalExtension, recordPk } = body;
 
         if (this.options.allowedFileExtensions && !this.options.allowedFileExtensions.includes(originalExtension.toLowerCase())) {
           return {
@@ -461,6 +460,131 @@ export default class UploadPlugin extends AdminForthPlugin {
       },
     });
 
+  }
+
+  async uploadFromBuffer({
+    filename,
+    contentType,
+    buffer,
+    adminUser,
+    extra,
+  }: {
+    filename: string;
+    contentType: string;
+    buffer: Buffer | Uint8Array | ArrayBuffer;
+    adminUser: AdminUser;
+    extra?: HttpExtra;
+  }): Promise<{ path: string; previewUrl: string }> {
+    if (!filename || !contentType || !buffer) {
+      throw new Error('filename, contentType and buffer are required');
+    }
+
+    const lastDotIndex = filename.lastIndexOf('.');
+    if (lastDotIndex === -1) {
+      throw new Error('filename must contain an extension');
+    }
+
+    const originalExtension = filename.substring(lastDotIndex + 1).toLowerCase();
+    const originalFilename = filename.substring(0, lastDotIndex);
+
+    if (this.options.allowedFileExtensions && !this.options.allowedFileExtensions.includes(originalExtension)) {
+      throw new Error(
+        `File extension "${originalExtension}" is not allowed, allowed extensions are: ${this.options.allowedFileExtensions.join(', ')}`
+      );
+    }
+
+    let nodeBuffer: Buffer;
+    if (Buffer.isBuffer(buffer)) {
+      nodeBuffer = buffer;
+    } else if (buffer instanceof ArrayBuffer) {
+      nodeBuffer = Buffer.from(buffer);
+    } else if (ArrayBuffer.isView(buffer)) {
+      nodeBuffer = Buffer.from(buffer.buffer, buffer.byteOffset, buffer.byteLength);
+    } else {
+      throw new Error('Unsupported buffer type');
+    }
+
+    const size = nodeBuffer.byteLength;
+    if (this.options.maxFileSize && size > this.options.maxFileSize) {
+      throw new Error(
+        `File size ${size} is too large. Maximum allowed size is ${this.options.maxFileSize}`
+      );
+    }
+    const filePath: string = this.options.filePath({
+      originalFilename,
+      originalExtension,
+      contentType,
+      record: undefined,
+    });
+
+    if (filePath.startsWith('/')) {
+      throw new Error('s3Path should not start with /, please adjust s3path function to not return / at the start of the path');
+    }
+
+    const { uploadUrl, uploadExtraParams } = await this.options.storageAdapter.getUploadSignedUrl(
+      filePath,
+      contentType,
+      1800,
+    );
+
+    const headers: Record<string, string> = {
+      'Content-Type': contentType,
+    };
+    if (uploadExtraParams) {
+      Object.entries(uploadExtraParams).forEach(([key, value]) => {
+        headers[key] = value as string;
+      });
+    }
+
+    const resp = await fetch(uploadUrl as any, {
+      method: 'PUT',
+      headers,
+      body: nodeBuffer as any,
+    });
+
+    if (!resp.ok) {
+      let bodyText = '';
+      try {
+        bodyText = await resp.text();
+      } catch (e) {
+        // ignore
+      }
+      throw new Error(`Upload failed with status ${resp.status}: ${bodyText}`);
+    }
+
+    await this.options.storageAdapter.markKeyForNotDeletation(filePath);
+
+    if (!this.resourceConfig) {
+      throw new Error('resourceConfig is not initialized yet');
+    }
+
+    const { error: createError } = await this.adminforth.createResourceRecord({
+      resource: this.resourceConfig,
+      record: { [this.options.pathColumnName]: filePath },
+      adminUser,
+      extra,
+    });
+
+    if (createError) {
+      try {
+        await this.options.storageAdapter.markKeyForDeletation(filePath);
+      } catch (e) {
+        // best-effort cleanup, ignore error
+      }
+      throw new Error(`Error creating record after upload: ${createError}`);
+    }
+
+    let previewUrl: string;
+    if (this.options.preview?.previewUrl) {
+      previewUrl = this.options.preview.previewUrl({ filePath });
+    } else {
+      previewUrl = await this.options.storageAdapter.getDownloadUrl(filePath, 1800);
+    }
+
+    return {
+      path: filePath,
+      previewUrl,
+    };
   }
 
 }
