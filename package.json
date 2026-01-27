@@ -21,8 +21,10 @@
   "license": "ISC",
   "dependencies": {
     "@aws-sdk/client-s3": "^3.629.0",
-    "@aws-sdk/s3-request-presigner": "^3.629.0",
-    "adminforth": "^2.4.0-next.237"
+    "@aws-sdk/s3-request-presigner": "^3.629.0"
+  },
+  "peerDependencies": {
+    "adminforth": "next"
   },
   "keywords": [
     "adminforth",

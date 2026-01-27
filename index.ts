@@ -2,9 +2,12 @@
 import { PluginOptions } from './types.js';
 import { AdminForthPlugin, AdminForthResourceColumn, AdminForthResource, Filters, IAdminForth, IHttpServer, suggestIfTypo, RateLimiter, AdminUser, HttpExtra } from "adminforth";
 import { Readable } from "stream";
+import { randomUUID } from "crypto";
+import { interpretResource } from 'adminforth';
+import { ActionCheckSource } from 'adminforth'; 
 
 const ADMINFORTH_NOT_YET_USED_TAG = 'adminforth-candidate-for-cleanup';
-
+const jobs = new Map();
 export default class UploadPlugin extends AdminForthPlugin {
   options: PluginOptions;
 
@@ -17,6 +20,10 @@ export default class UploadPlugin extends AdminForthPlugin {
 
   rateLimiter: RateLimiter;
 
+  getFileDownloadUrl: ((path: string) => Promise<string>); 
+
+  getFileUploadUrl: ( originalFilename, contentType, size, originalExtension, recordPk ) => Promise<{ uploadUrl: string, tagline?: string, filePath?: string, uploadExtraParams?: Record<string, string>, previewUrl?: string, error?: string } | {error: string}>;
+
   constructor(options: PluginOptions) {
     super(options, import.meta.url);
     this.options = options;
@@ -24,10 +31,155 @@ export default class UploadPlugin extends AdminForthPlugin {
     // for calcualting average time
     this.totalCalls = 0;
     this.totalDuration = 0;
+    this.getFileDownloadUrl = async (path: string, expiresInSeconds: number = 1800) : Promise<string> => {
+      if (!path) {
+        return '';
+      }
+      return this.options.storageAdapter.getDownloadUrl(path, expiresInSeconds);
+    }
+
+    this.getFileUploadUrl = async ( originalFilename, contentType, size, originalExtension, recordPk ) : Promise<{ uploadUrl: string, tagline?: string, filePath?: string, uploadExtraParams?: Record<string, string>, previewUrl?: string, error?: string } | {error: string}> => {
+        if (this.options.allowedFileExtensions && !this.options.allowedFileExtensions.includes(originalExtension.toLowerCase())) {
+          return {
+            error: `File extension "${originalExtension}" is not allowed, allowed extensions are: ${this.options.allowedFileExtensions.join(', ')}`
+          };
+        }
+
+        let record = undefined;
+        if (recordPk) {
+          // get record by recordPk
+          const pkName = this.resourceConfig.columns.find((column: any) => column.primaryKey)?.name;
+          record = await this.adminforth.resource(this.resourceConfig.resourceId).get(
+            [Filters.EQ(pkName, recordPk)]
+          )
+        }
+
+        const filePath: string = this.options.filePath({ originalFilename, originalExtension, contentType, record });
+        if (filePath.startsWith('/')) {
+          throw new Error('s3Path should not start with /, please adjust s3path function to not return / at the start of the path');
+        }
+        const { uploadUrl, uploadExtraParams } = await this.options.storageAdapter.getUploadSignedUrl(filePath, contentType, 1800);
+        let previewUrl;
+        if (this.options.preview?.previewUrl) {
+          previewUrl = this.options.preview.previewUrl({ filePath });
+        } else {
+          previewUrl = await this.options.storageAdapter.getDownloadUrl(filePath, 1800);
+        }
+        const tagline = `${ADMINFORTH_NOT_YET_USED_TAG}=true`;
+        
+        return {
+          uploadUrl,
+          tagline,
+          filePath,
+          uploadExtraParams,
+          previewUrl,
+        };
+    };
+
     if (this.options.generation?.rateLimit?.limit) {
-    this.rateLimiter = new RateLimiter(this.options.generation.rateLimit?.limit)
+      this.rateLimiter = new RateLimiter(this.options.generation.rateLimit?.limit)
     }
   }
+
+  private normalizePaths(value: any): string[] {
+    if (!value) return [];
+    if (Array.isArray(value)) return value.filter(Boolean).map(String);
+    return [String(value)];
+  }
+
+  private async callStorageAdapter(primaryMethod: string, fallbackMethod: string, filePath: string) {
+    const adapter: any = this.options.storageAdapter as any;
+    const fn = adapter?.[primaryMethod] ?? adapter?.[fallbackMethod];
+    if (typeof fn !== 'function') {
+      throw new Error(`Storage adapter is missing method "${primaryMethod}" (fallback "${fallbackMethod}")`);
+    }
+    await fn.call(adapter, filePath);
+  }
+
+  public markKeyForNotDeletion(filePath: string) {
+    return this.callStorageAdapter('markKeyForNotDeletion', 'markKeyForNotDeletation', filePath);
+  }
+  
+  public markKeyForDeletion(filePath: string) {
+    return this.callStorageAdapter('markKeyForDeletion', 'markKeyForDeletation', filePath);
+  }
+
+  private async generateImages(jobId: string, prompt: string, recordId: any, adminUser: any, headers: any) {
+    if (this.options.generation.rateLimit?.limit) {
+      // rate limit
+      // const { error } = RateLimiter.checkRateLimit(
+      //   this.pluginInstanceId, 
+      //   this.options.generation.rateLimit?.limit,
+      //   this.adminforth.auth.getClientIp(headers),
+      // );
+      if (!await this.rateLimiter.consume(`${this.pluginInstanceId}-${this.adminforth.auth.getClientIp(headers)}`)) {
+        jobs.set(jobId, { status: "failed", error: this.options.generation.rateLimit.errorMessage });
+        return { error: this.options.generation.rateLimit.errorMessage };
+      }
+    }
+    let attachmentFiles = [];
+    if (this.options.generation.attachFiles) {
+      // TODO - does it require additional allowed action to check this record id has access to get the image?
+      // or should we mention in docs that user should do validation in method itself
+      const record = await this.adminforth.resource(this.resourceConfig.resourceId).get(
+        [Filters.EQ(this.resourceConfig.columns.find(c => c.primaryKey)?.name, recordId)]
+      );
+
+
+      if (!record) {
+        return { error: `Record with id ${recordId} not found` };
+      }
+      
+      attachmentFiles = await this.options.generation.attachFiles({ record, adminUser });
+      // if files is not array, make it array
+      if (!Array.isArray(attachmentFiles)) {
+        attachmentFiles = [attachmentFiles];
+      }
+
+    }
+    
+    let error: string | undefined = undefined;
+
+    const STUB_MODE = false;
+
+    const images = await Promise.all(
+      (new Array(this.options.generation.countToGenerate)).fill(0).map(async () => {
+        if (STUB_MODE) {
+          await new Promise((resolve) => setTimeout(resolve, 2000));
+          return `https://picsum.photos/200/300?random=${Math.floor(Math.random() * 1000)}`;
+        }
+        const start = +new Date();
+        let resp;
+        try {
+          resp = await this.options.generation.adapter.generate(
+            {
+              prompt,
+              inputFiles: attachmentFiles,
+              n: 1,
+              size: this.options.generation.outputSize,
+            }
+          )
+        } catch (e: any) {
+          error = `No response from image generation provider: ${e.message}. Please check your prompt or try again later.`;
+          return;
+        }
+
+        if (resp.error) {
+          console.error('Error generating image', resp.error);
+          error = resp.error;
+          return;
+        }
+
+        this.totalCalls++;
+        this.totalDuration += (+new Date() - start) / 1000;
+        
+        return resp.imageURLs[0]
+
+      })
+    );
+    jobs.set(jobId, { status: "completed", images, error });
+    return { ok: true };
+  };
 
   instanceUniqueRepresentation(pluginOptions: any) : string {
     return `${pluginOptions.pathColumnName}`;
@@ -39,13 +191,19 @@ export default class UploadPlugin extends AdminForthPlugin {
   }
 
   async genPreviewUrl(record: any) {
-    if (this.options.preview?.previewUrl) {
-      record[`previewUrl_${this.pluginInstanceId}`] = this.options.preview.previewUrl({ filePath: record[this.options.pathColumnName] });
-      return;
-    }
-    const previewUrl = await this.options.storageAdapter.getDownloadUrl(record[this.options.pathColumnName], 1800);
+    const value = record?.[this.options.pathColumnName];
+    const paths = this.normalizePaths(value);
+    if (!paths.length) return;
 
-    record[`previewUrl_${this.pluginInstanceId}`] = previewUrl;
+    const makeUrl = async (filePath: string) => {
+      if (this.options.preview?.previewUrl) {
+        return this.options.preview.previewUrl({ filePath });
+      }
+      return await this.options.storageAdapter.getDownloadUrl(filePath, 1800);
+    };
+
+    const urls = await Promise.all(paths.map(makeUrl));
+    record[`previewUrl_${this.pluginInstanceId}`] = Array.isArray(value) ? urls : urls[0];
   }
 
   async modifyResourceConfig(adminforth: IAdminForth, resourceConfig: AdminForthResource) {
@@ -58,16 +216,6 @@ export default class UploadPlugin extends AdminForthPlugin {
     const pathColumnIndex = resourceConfig.columns.findIndex((column: any) => column.name === pathColumnName);
     if (pathColumnIndex === -1) {
       throw new Error(`Column with name "${pathColumnName}" not found in resource "${resourceConfig.label}"`);
-    }
-
-    if (this.options.generation?.fieldsForContext) {
-      this.options.generation?.fieldsForContext.forEach((field: string) => {
-        if (!resourceConfig.columns.find((column: any) => column.name === field)) {
-          const similar = suggestIfTypo(resourceConfig.columns.map((column: any) => column.name), field);
-          throw new Error(`Field "${field}" specified in fieldsForContext not found in
- resource "${resourceConfig.label}". ${similar ? `Did you mean "${similar}"?` : ''}`);
-        }
-      });
     }
 
     const pluginFrontendOptions = {
@@ -85,32 +233,11 @@ export default class UploadPlugin extends AdminForthPlugin {
       minShowWidth: this.options.preview?.minShowWidth,
       generationPrompt: this.options.generation?.generationPrompt,
       recorPkFieldName: this.resourceConfig.columns.find((column: any) => column.primaryKey)?.name,
+      pathColumnName: this.options.pathColumnName,
     };
     // define components which will be imported from other components
     this.componentPath('imageGenerator.vue');
 
-    const virtualColumn: AdminForthResourceColumn = {
-      virtual: true,
-      name: `uploader_${this.pluginInstanceId}`,
-      components: {
-        edit: {
-          file: this.componentPath('uploader.vue'),
-          meta: pluginFrontendOptions,
-        },
-        create: {
-          file: this.componentPath('uploader.vue'),
-          meta: pluginFrontendOptions,
-        },
-      },
-      showIn: {
-        create: true,
-        edit: true,
-        list: false,
-        show: false,
-        filter: false,
-      },
-    };
-   
     if (!resourceConfig.columns[pathColumnIndex].components) {
       resourceConfig.columns[pathColumnIndex].components = {};
     }
@@ -129,48 +256,29 @@ export default class UploadPlugin extends AdminForthPlugin {
       };
     }
 
-    // insert virtual column after path column if it is not already there
-    const virtualColumnIndex = resourceConfig.columns.findIndex((column: any) => column.name === virtualColumn.name);
-    if (virtualColumnIndex === -1) {
-      resourceConfig.columns.splice(pathColumnIndex + 1, 0, virtualColumn);
+    resourceConfig.columns[pathColumnIndex].components.create = {
+      file: this.componentPath('uploader.vue'),
+      meta: pluginFrontendOptions,
     }
 
-
-    // if showIn of path column has 'create' or 'edit' remove it but use it for virtual column
-    if (pathColumn.showIn && (pathColumn.showIn.create !== undefined)) {
-      virtualColumn.showIn = { ...virtualColumn.showIn, create: pathColumn.showIn.create };
-      pathColumn.showIn = { ...pathColumn.showIn, create: false };
+    resourceConfig.columns[pathColumnIndex].components.edit = {
+      file: this.componentPath('uploader.vue'),
+      meta: pluginFrontendOptions,
     }
-
-    if (pathColumn.showIn && (pathColumn.showIn.edit !== undefined)) {
-      virtualColumn.showIn = { ...virtualColumn.showIn, edit: pathColumn.showIn.edit };
-      pathColumn.showIn = { ...pathColumn.showIn, edit: false };
-    }
-
-    virtualColumn.required = pathColumn.required;
-    virtualColumn.label = pathColumn.label;
-    virtualColumn.editingNote = pathColumn.editingNote;
 
     // ** HOOKS FOR CREATE **//
 
-    // add beforeSave hook to save virtual column to path column
-    resourceConfig.hooks.create.beforeSave.push(async ({ record }: { record: any }) => {
-      if (record[virtualColumn.name]) {
-        record[pathColumnName] = record[virtualColumn.name];
-        delete record[virtualColumn.name];
-      }
-      return { ok: true };
-    });
 
     // in afterSave hook, aremove tag adminforth-not-yet-used from the file
     resourceConfig.hooks.create.afterSave.push(async ({ record }: { record: any }) => {
       process.env.HEAVY_DEBUG && console.log('💾💾  after save ', record?.id);
       
-      if (record[pathColumnName]) {
-        process.env.HEAVY_DEBUG && console.log('🪥🪥 remove ObjectTagging', record[pathColumnName]);
+      const paths = this.normalizePaths(record?.[pathColumnName]);
+      await Promise.all(paths.map(async (p) => {
+        process.env.HEAVY_DEBUG && console.log('🪥🪥 remove ObjectTagging', p);
         // let it crash if it fails: this is a new file which just was uploaded.
-        await this.options.storageAdapter.markKeyForNotDeletation(record[pathColumnName]);
-      }
+        await this.markKeyForNotDeletion(p);
+      }));
       return { ok: true };
     });
 
@@ -210,48 +318,54 @@ export default class UploadPlugin extends AdminForthPlugin {
 
     // add delete hook which sets tag adminforth-candidate-for-cleanup to true
     resourceConfig.hooks.delete.afterSave.push(async ({ record }: { record: any }) => {
-      if (record[pathColumnName]) {
+      const paths = this.normalizePaths(record?.[pathColumnName]);
+      await Promise.all(paths.map(async (p) => {
         try {
-          await this.options.storageAdapter.markKeyForDeletation(record[pathColumnName]);
+          await this.markKeyForDeletion(p);
         } catch (e) {
           // file might be e.g. already deleted, so we catch error
-          console.error(`Error setting tag ${ADMINFORTH_NOT_YET_USED_TAG} to true for object ${record[pathColumnName]}. File will not be auto-cleaned up`, e);
+          console.error(`Error setting tag ${ADMINFORTH_NOT_YET_USED_TAG} to true for object ${p}. File will not be auto-cleaned up`, e);
         }
-      }
+      }));
       return { ok: true };
     });
 
 
     // ** HOOKS FOR EDIT **//
 
-    // beforeSave
-    resourceConfig.hooks.edit.beforeSave.push(async ({ record }: { record: any }) => {
-      // null is when value is removed
-      if (record[virtualColumn.name] || record[virtualColumn.name] === null) {
-        record[pathColumnName] = record[virtualColumn.name];
-      }
-      return { ok: true };
-    })
 
 
     // add edit postSave hook to delete old file and remove tag from new file
     resourceConfig.hooks.edit.afterSave.push(async ({ updates, oldRecord }: { updates: any, oldRecord: any }) => {
 
-      if (updates[virtualColumn.name] || updates[virtualColumn.name] === null) {
-        if (oldRecord[pathColumnName]) {
+      if (updates[pathColumnName] || updates[pathColumnName] === null) {
+        const oldValue = oldRecord?.[pathColumnName];
+        const newValue = updates?.[pathColumnName];
+
+        const oldPaths = this.normalizePaths(oldValue);
+        const newPaths = newValue === null ? [] : this.normalizePaths(newValue);
+
+        const oldSet = new Set(oldPaths);
+        const newSet = new Set(newPaths);
+
+        const toDelete = oldPaths.filter((p) => !newSet.has(p));
+        const toKeep = newPaths.filter((p) => !oldSet.has(p));
+
+        await Promise.all(toDelete.map(async (p) => {
           // put tag to delete old file
           try {
-            await this.options.storageAdapter.markKeyForDeletation(oldRecord[pathColumnName]);
+            await this.markKeyForDeletion(p);
           } catch (e) {
             // file might be e.g. already deleted, so we catch error
-            console.error(`Error setting tag ${ADMINFORTH_NOT_YET_USED_TAG} to true for object ${oldRecord[pathColumnName]}. File will not be auto-cleaned up`, e);
+            console.error(`Error setting tag ${ADMINFORTH_NOT_YET_USED_TAG} to true for object ${p}. File will not be auto-cleaned up`, e);
           }
-        }
-        if (updates[virtualColumn.name] !== null) {
+        }));
+
+        await Promise.all(toKeep.map(async (p) => {
           // remove tag from new file
-          // in this case we let it crash if it fails: this is a new file which just was uploaded. 
-          await  this.options.storageAdapter.markKeyForNotDeletation(updates[pathColumnName]);
-        }
+          // in this case we let it crash if it fails: this is a new file which just was uploaded.
+          await this.markKeyForNotDeletion(p);
+        }));
       }
       return { ok: true };
     });
@@ -261,6 +375,26 @@ export default class UploadPlugin extends AdminForthPlugin {
 
   validateConfigAfterDiscover(adminforth: IAdminForth, resourceConfig: any) {
     this.adminforth = adminforth;
+    
+    if (this.options.generation) {
+      const template = this.options.generation?.generationPrompt;
+      const regex = /{{(.*?)}}/g;
+      const matches = template.match(regex);
+      if (matches) {
+        matches.forEach((match) => {
+          const field = match.replace(/{{|}}/g, '').trim();
+          if (!resourceConfig.columns.find((column: any) => column.name === field)) {
+            const similar = suggestIfTypo(resourceConfig.columns.map((column: any) => column.name), field);
+            throw new Error(`Field "${field}" specified in generationPrompt not found in resource "${resourceConfig.label}". ${similar ? `Did you mean "${similar}"?` : ''}`);
+          } else {
+            let column = resourceConfig.columns.find((column: any) => column.name === field);
+            if (column.backendOnly === true) {
+              throw new Error(`Field "${field}" specified in generationPrompt is marked as backendOnly in resource "${resourceConfig.label}". Please remove backendOnly or choose another field.`);
+            }
+          }
+        });
+      }
+    }
     // called here because modifyResourceConfig can be called in build time where there is no environment and AWS secrets
     this.setupLifecycleRule();
   }
@@ -283,43 +417,10 @@ export default class UploadPlugin extends AdminForthPlugin {
       method: 'POST',
       path: `/plugin/${this.pluginInstanceId}/get_file_upload_url`,
       handler: async ({ body }) => {
-        const { originalFilename, contentType, originalExtension, recordPk } = body;
+        const { originalFilename, contentType, size, originalExtension, recordPk } = body;
 
-        if (this.options.allowedFileExtensions && !this.options.allowedFileExtensions.includes(originalExtension.toLowerCase())) {
-          return {
-            error: `File extension "${originalExtension}" is not allowed, allowed extensions are: ${this.options.allowedFileExtensions.join(', ')}`
-          };
-        }
-
-        let record = undefined;
-        if (recordPk) {
-          // get record by recordPk
-          const pkName = this.resourceConfig.columns.find((column: any) => column.primaryKey)?.name;
-          record = await this.adminforth.resource(this.resourceConfig.resourceId).get(
-            [Filters.EQ(pkName, recordPk)]
-          )
-        }
-
-        const filePath: string = this.options.filePath({ originalFilename, originalExtension, contentType, record });
-        if (filePath.startsWith('/')) {
-          throw new Error('s3Path should not start with /, please adjust s3path function to not return / at the start of the path');
-        }
-        const { uploadUrl, uploadExtraParams } = await this.options.storageAdapter.getUploadSignedUrl(filePath, contentType, 1800);
-        let previewUrl;
-        if (this.options.preview?.previewUrl) {
-          previewUrl = this.options.preview.previewUrl({ filePath });
-        } else {
-          previewUrl = await this.options.storageAdapter.getDownloadUrl(filePath, 1800);
-        }
-        const tagline = `${ADMINFORTH_NOT_YET_USED_TAG}=true`;
+        return this.getFileUploadUrl( originalFilename, contentType, size, originalExtension, recordPk );
         
-        return {
-          uploadUrl,
-          tagline,
-          filePath,
-          uploadExtraParams,
-          previewUrl,
-        };
       }
     });
 
@@ -345,81 +446,34 @@ export default class UploadPlugin extends AdminForthPlugin {
 
     server.endpoint({
       method: 'POST',
-      path: `/plugin/${this.pluginInstanceId}/generate_images`,
+      path: `/plugin/${this.pluginInstanceId}/create-image-generation-job`,
       handler: async ({ body, adminUser, headers }) => {
         const { prompt, recordId } = body;
-        if (this.rateLimiter) {
-          // rate limit
-          // const { error } = RateLimiter.checkRateLimit(
-          //   this.pluginInstanceId, 
-          //   this.options.generation.rateLimit?.limit,
-          //   this.adminforth.auth.getClientIp(headers),
-          // );
-          if (!await this.rateLimiter.consume(`${this.pluginInstanceId}-${this.adminforth.auth.getClientIp(headers)}`)) {
-            return { error: this.options.generation.rateLimit.errorMessage };
-          }
+
+        const jobId = randomUUID();
+        jobs.set(jobId, { status: "in_progress" });
+
+        this.generateImages(jobId, prompt, recordId, adminUser, headers);
+        setTimeout(() => jobs.delete(jobId), 1_800_000);
+        setTimeout(() => {jobs.set(jobId, { status: "timeout" });}, 300_000);
+
+        return { ok: true, jobId };
+      }
+    });
+
+    server.endpoint({
+      method: 'POST',
+      path: `/plugin/${this.pluginInstanceId}/get-image-generation-job-status`,
+      handler: async ({ body, adminUser, headers }) => {
+        const jobId = body.jobId;
+        if (!jobId) {
+          return { error: "Can't find job id" };
         }
-        let attachmentFiles = [];
-        if (this.options.generation.attachFiles) {
-          // TODO - does it require additional allowed action to check this record id has access to get the image?
-          // or should we mention in docs that user should do validation in method itself
-          const record = await this.adminforth.resource(this.resourceConfig.resourceId).get(
-            [Filters.EQ(this.resourceConfig.columns.find((column: any) => column.primaryKey)?.name, recordId)]
-          );
-
-          if (!record) {
-            return { error: `Record with id ${recordId} not found` };
-          }
-          
-          attachmentFiles = await this.options.generation.attachFiles({ record, adminUser });
-          // if files is not array, make it array
-          if (!Array.isArray(attachmentFiles)) {
-            attachmentFiles = [attachmentFiles];
-          }
-
+        const job = jobs.get(jobId);
+        if (!job) {
+          return { error: "Job not found" };
         }
-        
-        let error: string | undefined = undefined;
-
-        const STUB_MODE = false;
-
-        const images = await Promise.all(
-          (new Array(this.options.generation.countToGenerate)).fill(0).map(async () => {
-            if (STUB_MODE) {
-              await new Promise((resolve) => setTimeout(resolve, 2000));
-              return `https://picsum.photos/200/300?random=${Math.floor(Math.random() * 1000)}`;
-            }
-            const start = +new Date();
-            let resp;
-            try {
-              resp = await this.options.generation.adapter.generate(
-                {
-                  prompt,
-                  inputFiles: attachmentFiles,
-                  n: 1,
-                  size: this.options.generation.outputSize,
-                }
-              )
-            } catch (e: any) {
-              error = `No response from image generation provider: ${e.message}. Please check your prompt or try again later.`;
-              return;
-            }
-
-            if (resp.error) {
-              console.error('Error generating image', resp.error);
-              error = resp.error;
-              return;
-            }
-
-            this.totalCalls++;
-            this.totalDuration += (+new Date() - start) / 1000;
-            
-            return resp.imageURLs[0]
-
-          })
-        );
-
-        return { error, images };
+        return { ok: true, job };
       }
     });
 
@@ -460,7 +514,45 @@ export default class UploadPlugin extends AdminForthPlugin {
       },
     });
 
+    server.endpoint({
+      method: 'POST',
+      path: `/plugin/${this.pluginInstanceId}/get-file-download-url`,
+      handler: async ({ body, adminUser }) => {
+        const { filePath } = body;
+        if (!filePath) {
+          return { error: 'Missing filePath' };
+        }
+        const allowedActions = await interpretResource( adminUser, this.resourceConfig, '', ActionCheckSource.CustomActionRequest, this.adminforth  )
+        if (allowedActions.allowedActions.create === true || allowedActions.allowedActions.edit === true) {
+          const url = await this.options.storageAdapter.getDownloadUrl(filePath, 1800);
+    
+          return {
+            url,
+          };
+        }
+        return { error: 'You do not have permission to download this file' };
+      },
+    });
+
+    server.endpoint({
+      method: 'POST',
+      path: `/plugin/${this.pluginInstanceId}/get-file-preview-url`,
+      handler: async ({ body, adminUser }) => {
+        const { filePath } = body;
+        if (!filePath) {
+          return { error: 'Missing filePath' };
+        }
+        if (this.options.preview?.previewUrl) {
+          const url = this.options.preview.previewUrl({ filePath });
+          return { url };
+        }
+        return { error: 'failed to generate preview URL' };
+      },
+    });
+
+
   }
+  
 
   async uploadFromBuffer({
     filename,

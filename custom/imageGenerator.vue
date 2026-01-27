@@ -11,7 +11,7 @@
                     {{ $t('Generate image with AI') }}
                 </h3>
                 <button type="button" 
-                  @click="emit('close')"
+                  @click="() => {stopGeneration = true; emit('close')}"
                   class="text-gray-400 bg-transparent hover:bg-gray-200 hover:text-gray-900 rounded-lg text-sm w-8 h-8 ms-auto inline-flex justify-center items-center dark:hover:bg-gray-600 dark:hover:text-white" >
                     <svg class="w-3 h-3" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 14 14">
                         <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m1 1 6 6m0 0 6 6M7 7l6-6M7 7l-6 6"/>
@@ -161,7 +161,7 @@
                   disabled:opacity-50 disabled:cursor-not-allowed"
                 >{{ $t('Use image') }}</button>
                 <button type="button" class="py-2.5 px-5 ms-3 text-sm font-medium text-gray-900 focus:outline-none bg-white rounded-lg border border-gray-200 hover:bg-gray-100 hover:text-blue-700 focus:z-10 focus:ring-4 focus:ring-gray-100 dark:focus:ring-gray-700 dark:bg-gray-800 dark:text-gray-400 dark:border-gray-600 dark:hover:text-white dark:hover:bg-gray-700"
-                  @click="emit('close')"
+                  @click="() => {stopGeneration = true; emit('close')}"
                 >{{ $t('Cancel') }}</button>
             </div>
         </div>
@@ -181,6 +181,7 @@ import { callAdminForthApi } from '@/utils';
 import { useI18n } from 'vue-i18n';
 import adminforth from '@/adminforth';
 import { ProgressBar } from '@/afcl';
+import * as Handlebars from 'handlebars';
 
 const { t: $t } = useI18n();
 
@@ -190,6 +191,7 @@ const props = defineProps(['meta', 'record']);
 const images = ref([]);
 const loading = ref(false);
 const attachmentFiles = ref<string[]>([])
+const stopGeneration = ref(false);
 
 function minifyField(field: string): string {
   if (field.length > 100) {
@@ -213,28 +215,9 @@ onMounted(async () => {
   }
   // iterate over all variables in template and replace them with their values from props.record[field]. 
   // if field is not present in props.record[field] then replace it with empty string and drop warning
-  const regex = /{{(.*?)}}/g;
-  const matches = template.match(regex);
-  if (matches) {
-    matches.forEach((match) => {
-      const field = match.replace(/{{|}}/g, '').trim();
-      if (field in context) {
-        return;
-      } else if (field in props.record) {
-        context[field] = minifyField(props.record[field]);
-      } else {
-        adminforth.alert({
-          message: $t('Field {{field}} defined in template but not found in record', { field }),
-          variant: 'warning',
-          timeout: 15,
-        });
-      } 
-    });
-  }
-
-  prompt.value = template.replace(regex, (_, field) => {
-    return context[field.trim()] || '';
-  });
+  const tpl = Handlebars.compile(template);
+  const compiledTemplate = tpl(props.record);
+  prompt.value = compiledTemplate;
   
   const recordId = props.record[props.meta.recorPkFieldName];
   if (!recordId) return;
@@ -248,7 +231,6 @@ onMounted(async () => {
 
     if (resp?.files?.length) {
       attachmentFiles.value = resp.files;
-      console.log('attachmentFiles', attachmentFiles.value);
     }
   } catch (err) {
     console.error('Failed to fetch attachment files', err);
@@ -337,7 +319,7 @@ async function generateImages() {
   let error = null;
   try {
     resp = await callAdminForthApi({
-      path: `/plugin/${props.meta.pluginInstanceId}/generate_images`,
+      path: `/plugin/${props.meta.pluginInstanceId}/create-image-generation-job`,
       method: 'POST',
       body: {
         prompt: prompt.value,
@@ -346,16 +328,13 @@ async function generateImages() {
     });
   } catch (e) {
     console.error(e);
-  } finally {
-    clearInterval(ticker);
-    loadingTimer.value = null;
-    loading.value = false;
   }
+
   if (resp?.error) {
     error = resp.error;
   }
   if (!resp) {
-    error = $t('Error generating images, something went wrong');
+    error = $t('Error creating image generation job');
   }
 
   if (error) {
@@ -371,10 +350,54 @@ async function generateImages() {
     return;
   }
 
+  const jobId = resp.jobId;
+  let jobStatus = null;
+  let jobResponse = null;
+  do {
+    jobResponse = await callAdminForthApi({
+      path: `/plugin/${props.meta.pluginInstanceId}/get-image-generation-job-status`,
+      method: 'POST',
+      body: { jobId },
+    });
+    if (jobResponse !== null) {
+      if (jobResponse?.error) {
+        error = jobResponse.error;
+        break;
+      };
+      jobStatus = jobResponse?.job?.status;
+      if (jobStatus === 'failed') {
+        error = jobResponse?.job?.error || $t('Image generation job failed');
+      }
+      if (jobStatus === 'timeout') {
+        error = jobResponse?.job?.error || $t('Image generation job timeout');
+      }
+    }
+    await new Promise((resolve) => setTimeout(resolve, 2000));
+  } while ((jobStatus === 'in_progress' || jobStatus === null) && !stopGeneration.value);
+  
+  if (error) {
+      adminforth.alert({
+        message: error,
+        variant: 'danger',
+        timeout: 'unlimited',
+      });
+      clearInterval(ticker);
+      loadingTimer.value = null;
+      loading.value = false;
+    return;
+  }
+
+  const respImages = jobResponse?.job?.images || [];
+
   images.value = [
     ...images.value,
-    ...resp.images,
+    ...respImages,
   ];
+
+  clearInterval(ticker);
+  loadingTimer.value = null;
+  loading.value = false;
+  
 
   // images.value = [
   //   'https://via.placeholder.com/600x400?text=Image+1',
@@ -386,7 +409,6 @@ async function generateImages() {
   caurosel.value = new Carousel(
     document.getElementById('gallery'), 
     images.value.map((img, index) => {
-      console.log('mapping image', img, index);
       return {
         image: img,
         el: document.getElementById('gallery').querySelector(`[data-carousel-item]:nth-child(${index + 1})`),
