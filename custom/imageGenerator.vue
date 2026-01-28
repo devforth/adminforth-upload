@@ -64,9 +64,10 @@
                   @change="handleAddFile"
                   accept="image/*" 
                 />
-                <button @click="fileInput?.click()" type="button" class="group hover:border-gray-500 transition border-gray-300 flex items-center justify-center w-20 h-20 border-2 border-dashed rounded-md">
+                <button v-if="!uploading" @click="fileInput?.click()" type="button" class="group hover:border-gray-500 transition border-gray-300 flex items-center justify-center w-20 h-20 border-2 border-dashed rounded-md">
                   <IconCloseOutline class="group-hover:text-gray-500 transition rotate-45 w-10 h-10 text-gray-300 hover:text-gray-300" />
                 </button>
+                <Skeleton v-else type="image" class="w-20 h-20" />
               </div>
 
               <!-- Fullscreen Modal -->
@@ -208,7 +209,7 @@ import adminforth from '@/adminforth';
 import { ProgressBar } from '@/afcl';
 import * as Handlebars from 'handlebars';
 import { IconCloseOutline } from '@iconify-prerendered/vue-flowbite';
-import { Tooltip } from '@/afcl'
+import { Tooltip, Skeleton } from '@/afcl'
 import { useRoute } from 'vue-router';
 
 const { t: $t, t } = useI18n();
@@ -220,6 +221,7 @@ const emit = defineEmits(['close', 'uploadImage']);
 const props = defineProps({
   meta: Object,
   record: Object,
+  humanifySize: Function,
 });
 const images = ref([]);
 const loading = ref(false);
@@ -498,8 +500,9 @@ async function handleAddFile(event) {
       continue;
     }
     const file = files[i];
-    requestAttachmentFiles.value!.push(file);
     const fileUrl = await uploadFile(file);
+    if (!fileUrl) continue;
+    requestAttachmentFiles.value!.push(file);
     requestAttachmentFilesUrls.value.push(fileUrl);
   }
   fileInput.value!.value = '';
@@ -510,26 +513,29 @@ function removeFileFromList(index: number) {
   requestAttachmentFilesUrls.value.splice(index, 1);
 }
 
-const uploaded = ref(false);
-const progress = ref(0);
+const uploading = ref(false);
 
 async function uploadFile(file: any): Promise<string> {
   const { name, size, type } = file;
+
   let imgPreview = '';
 
   const extension = name.split('.').pop();
   const nameNoExtension = name.replace(`.${extension}`, '');
 
+  if (props.meta.maxFileSize && size > props.meta.maxFileSize) {
+    adminforth.alert({
+      message: t('Sorry but the file size {size} is too large. Please upload a file with a maximum size of {maxFileSize}', {
+        size: props.humanifySize(size),
+        maxFileSize: props.humanifySize(props.meta.maxFileSize),
+      }),
+      variant: 'danger'
+    });
+    return;
+  }
+
   try {
-    // supports preview
-    if (type.startsWith('image/')) {
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        imgPreview = e.target.result as string;
-      }
-      reader.readAsDataURL(file);
-    }
-    
+    uploading.value = true;
     const { uploadUrl, uploadExtraParams, filePath, error, previewUrl } = await callAdminForthApi({
         path: `/plugin/${props.meta.pluginInstanceId}/get_file_upload_url`,
         method: 'POST',
@@ -547,18 +553,11 @@ async function uploadFile(file: any): Promise<string> {
         variant: 'danger'
       });
       imgPreview = null;
-      uploaded.value = false;
-      progress.value = 0;
       return;
     }
 
     const xhr = new XMLHttpRequest();
     const success = await new Promise((resolve) => {
-      xhr.upload.onprogress = (e) => {
-        if (e.lengthComputable) {
-          progress.value = Math.round((e.loaded / e.total) * 100);
-        }
-      };
       xhr.addEventListener('loadend', () => {
         const success = xhr.readyState === 4 && xhr.status === 200;
         // try to read response
@@ -578,8 +577,10 @@ async function uploadFile(file: any): Promise<string> {
       throw new Error('File upload failed');
     }
   } catch (err) {
+    uploading.value = false;
     console.error('File upload failed', err);
   }
+  uploading.value = false;
   return imgPreview;
 }
 </script>
