@@ -1,9 +1,7 @@
 <template>
   <div class="relative w-full">
       <ImageGenerator v-if="showImageGen" @close="showImageGen = false" :record="record" :meta="meta" 
-        @uploadImage="uploadGeneratedImage"
-        :uploadFileFunction="uploadFile"
-        :value="value"
+        @uploadImage="uploadGeneratedImage"  
       ></ImageGenerator>
 
       <button v-if="meta.generateImages" 
@@ -263,21 +261,13 @@ const onFileChange = async (e) => {
   progress.value = 0;
   uploaded.value = false;
   
-  const file = files[0];  
-  await uploadFile(file, uploadedSize, imgPreview, progress, uploaded, emit, props, route, t, adminforth);
-}
+  const file = files[0];
 
-
-async function uploadFile(file: File, uploadedSize?: any, imgPreview?: any, progress?: any, uploaded?: any, emit?: any, props?: any, route?: any, t?: any, adminforth?: any) {
   // get filename, extension, size, mimeType
   const { name, size, type } = file;
 
-  if (!file) {
-    return;
-  }
-  if ( uploadedSize ) {
-    uploadedSize.value = size;
-  }
+  uploadedSize.value = size;
+
   
   const extension = name.split('.').pop();
   const nameNoExtension = name.replace(`.${extension}`, '');
@@ -296,7 +286,7 @@ async function uploadFile(file: File, uploadedSize?: any, imgPreview?: any, prog
   }
 
   // validate file size
-  if (props.meta.maxFileSize && uploadedSize.value > props.meta.maxFileSize) {
+  if (props.meta.maxFileSize && size > props.meta.maxFileSize) {
     adminforth.alert({
       message: t('Sorry but the file size {size} is too large. Please upload a file with a maximum size of {maxFileSize}', {
         size: humanifySize(size),
@@ -306,9 +296,8 @@ async function uploadFile(file: File, uploadedSize?: any, imgPreview?: any, prog
     });
     return;
   }
-  if (emit) {
-    emit('update:inValidity', t('Upload in progress...'));
-  }
+
+  emit('update:inValidity', t('Upload in progress...'));
   try {
     // supports preview
     if (type.startsWith('image/')) {
@@ -376,9 +365,7 @@ async function uploadFile(file: File, uploadedSize?: any, imgPreview?: any, prog
       return;
     }
     uploaded.value = true;
-    if (emit) {
-      emit('update:value', filePath);
-    }
+    emit('update:value', filePath);
   } catch (error) {
     console.error('Error uploading file:', error);
     adminforth.alert({
@@ -389,11 +376,10 @@ async function uploadFile(file: File, uploadedSize?: any, imgPreview?: any, prog
     uploaded.value = false;
     progress.value = 0;
   } finally {
-    if (emit) {
-      emit('update:inValidity', false);
-    }
+    emit('update:inValidity', false);
   }
 }
+
 
 
 </script>
