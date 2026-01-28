@@ -34,14 +34,39 @@
 
               <!-- Thumbnails -->
               <div class="mt-2 flex flex-wrap gap-2">
-                <img
-                  v-for="(img, idx) in attachmentFiles"
-                  :key="idx"
-                  :src="img"
-                  class="w-20 h-20 object-cover rounded cursor-pointer border hover:border-blue-500 transition"
-                  :alt="`Generated image ${idx + 1}`"
-                  @click="zoomImage(img)"
+                <div class="group relative" v-for="(img, key) in requestAttachmentFilesUrls">
+                  <img
+                    :key="key"
+                    :src="img"
+                    class="w-20 h-20 object-cover rounded cursor-pointer border hover:border-blue-500 transition"
+                    :alt="`Generated image ${key + 1}`"
+                    @click="zoomImage(img)"
+                  />
+                  <div 
+                    class="opacity-0 group-hover:opacity-100 flex items-center justify-center w-5 h-5 bg-black absolute -top-2 -end-2 rounded-full border-2 border-white cursor-pointer hover:border-gray-300 hover:scale-110"
+                    @click="requestAttachmentFiles.splice(key, 1)"  
+                  >
+                    <Tooltip class="absolute top-0 end-0">
+                      <div>
+                        <div class="w-4 h-4 absolute"></div>
+                        <IconCloseOutline class="w-3 h-3 text-white hover:text-gray-300" />
+                      </div>
+                      <template #tooltip>
+                        Remove file
+                      </template>
+                    </Tooltip>
+                  </div>
+                </div>
+                <input 
+                  ref="fileInput"
+                  class="hidden"
+                  type="file"
+                  @change="handleAddFile"
+                  accept="image/*" 
                 />
+                <button @click="fileInput?.click()" type="button" class="group hover:border-gray-500 transition border-gray-300 flex items-center justify-center w-20 h-20 border-2 border-dashed rounded-md">
+                  <IconCloseOutline class="group-hover:text-gray-500 transition rotate-45 w-10 h-10 text-gray-300 hover:text-gray-300" />
+                </button>
               </div>
 
               <!-- Fullscreen Modal -->
@@ -182,31 +207,29 @@ import { useI18n } from 'vue-i18n';
 import adminforth from '@/adminforth';
 import { ProgressBar } from '@/afcl';
 import * as Handlebars from 'handlebars';
+import { IconCloseOutline } from '@iconify-prerendered/vue-flowbite';
+import { Tooltip } from '@/afcl'
 
 const { t: $t } = useI18n();
 
 const prompt = ref('');
 const emit = defineEmits(['close', 'uploadImage']);
-const props = defineProps(['meta', 'record']);
+const props = defineProps({
+  meta: Object,
+  record: Object,
+  uploadFileFunction: Function,
+});
 const images = ref([]);
 const loading = ref(false);
 const attachmentFiles = ref<string[]>([])
+const requestAttachmentFiles = ref<Blob[] | null>([]);
+const requestAttachmentFilesUrls = ref<string[]>([]);
 const stopGeneration = ref(false);
-
-function minifyField(field: string): string {
-  if (field.length > 100) {
-    return field.slice(0, 100) + '...';
-  }
-  return field;
-}
+const fileInput = ref<HTMLInputElement | null>(null);
 
 const caurosel = ref(null);
 onMounted(async () => {
   // Initialize carousel
-  const context = {
-    field: props.meta.pathColumnLabel,
-    resource: props.meta.resourceLabel,
-  }; 
   let template = '';
   if (props.meta.generationPrompt) {
     template = props.meta.generationPrompt;
@@ -230,12 +253,13 @@ onMounted(async () => {
     });
 
     if (resp?.files?.length) {
-      attachmentFiles.value = resp.files;
+      requestAttachmentFilesUrls.value = resp.files;
     }
   } catch (err) {
     console.error('Failed to fetch attachment files', err);
   }
 });
+
 
 async function slide(direction: number) {
   if (!caurosel.value) return;
@@ -323,11 +347,13 @@ async function generateImages() {
       method: 'POST',
       body: {
         prompt: prompt.value,
-        recordId: props.record[props.meta.recorPkFieldName]
+        recordId: props.record[props.meta.recorPkFieldName],
+        requestAttachmentFiles: requestAttachmentFilesUrls.value,
       },
     });
   } catch (e) {
     console.error(e);
+    return;
   }
 
   if (resp?.error) {
@@ -451,4 +477,32 @@ watch(zoomedImage, async (val) => {
     }).show()
   }
 })
+
+async function handleAddFile(event) {
+  const files = event.target.files;
+  for (let i = 0; i < files.length; i++) {
+    if (requestAttachmentFiles.value.find((f: any) => f.name === files[i].name)) {
+      adminforth.alert({
+        message: $t('File with the same name already added'),
+        variant: 'warning',
+        timeout: 5000,
+      });
+      continue;
+    }
+    const file = files[i];
+    const fileUrl = await props.uploadFileFunction(file);
+    requestAttachmentFiles.value?.push(file);
+  }
+  fileInput.value!.value = '';
+}
+
+function blobToBase64(blob) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onloadend = () => resolve(reader.result.split(',')[1]);
+    reader.onerror = reject;
+    reader.readAsDataURL(blob);
+  });
+}
+
 </script>
