@@ -506,10 +506,7 @@ async function handleAddFile(event) {
 }
 
 function removeFileFromList(index: number) {
-  console.log('Removing file at index', index);
-  console.log('RequestAttachmentFiles before', requestAttachmentFiles.value);
   requestAttachmentFiles.value!.splice(index, 1);
-  console.log('RequestAttachmentFiles after', requestAttachmentFiles.value);
   requestAttachmentFilesUrls.value.splice(index, 1);
 }
 
