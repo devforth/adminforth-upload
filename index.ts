@@ -105,7 +105,7 @@ export default class UploadPlugin extends AdminForthPlugin {
     return this.callStorageAdapter('markKeyForDeletion', 'markKeyForDeletation', filePath);
   }
 
-  private async generateImages(jobId: string, prompt: string, recordId: any, adminUser: any, headers: any) {
+  private async generateImages(jobId: string, prompt: string,requestAttachmentFiles: string[], recordId: any, adminUser: any, headers: any) {
     if (this.options.generation.rateLimit?.limit) {
       // rate limit
       // const { error } = RateLimiter.checkRateLimit(
@@ -118,7 +118,7 @@ export default class UploadPlugin extends AdminForthPlugin {
         return { error: this.options.generation.rateLimit.errorMessage };
       }
     }
-    let attachmentFiles = [];
+    let attachmentFiles = requestAttachmentFiles;
     // if (this.options.generation.attachFiles) {
     //   // TODO - does it require additional allowed action to check this record id has access to get the image?
     //   // or should we mention in docs that user should do validation in method itself
@@ -141,7 +141,7 @@ export default class UploadPlugin extends AdminForthPlugin {
     
     let error: string | undefined = undefined;
 
-    const STUB_MODE = true;
+    const STUB_MODE = false;
 
     const images = await Promise.all(
       (new Array(this.options.generation.countToGenerate)).fill(0).map(async () => {
@@ -449,12 +449,12 @@ export default class UploadPlugin extends AdminForthPlugin {
       method: 'POST',
       path: `/plugin/${this.pluginInstanceId}/create-image-generation-job`,
       handler: async ({ body, adminUser, headers }) => {
-        const { prompt, recordId } = body;
+        const { prompt, recordId, requestAttachmentFiles } = body;
 
         const jobId = randomUUID();
         jobs.set(jobId, { status: "in_progress" });
 
-        this.generateImages(jobId, prompt, recordId, adminUser, headers);
+        this.generateImages(jobId, prompt, recordId, requestAttachmentFiles, adminUser, headers);
         setTimeout(() => jobs.delete(jobId), 1_800_000);
         setTimeout(() => {jobs.set(jobId, { status: "timeout" });}, 300_000);
 

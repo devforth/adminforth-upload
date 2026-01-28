@@ -44,7 +44,7 @@
                   />
                   <div 
                     class="opacity-0 group-hover:opacity-100 flex items-center justify-center w-5 h-5 bg-black absolute -top-2 -end-2 rounded-full border-2 border-white cursor-pointer hover:border-gray-300 hover:scale-110"
-                    @click="requestAttachmentFiles.splice(key, 1)"  
+                    @click="removeFileFromList(key)"  
                   >
                     <Tooltip class="absolute top-0 end-0">
                       <div>
@@ -209,15 +209,17 @@ import { ProgressBar } from '@/afcl';
 import * as Handlebars from 'handlebars';
 import { IconCloseOutline } from '@iconify-prerendered/vue-flowbite';
 import { Tooltip } from '@/afcl'
+import { useRoute } from 'vue-router';
 
-const { t: $t } = useI18n();
+const { t: $t, t } = useI18n();
+const route = useRoute();
+
 
 const prompt = ref('');
 const emit = defineEmits(['close', 'uploadImage']);
 const props = defineProps({
   meta: Object,
   record: Object,
-  uploadFileFunction: Function,
 });
 const images = ref([]);
 const loading = ref(false);
@@ -257,6 +259,12 @@ onMounted(async () => {
     }
   } catch (err) {
     console.error('Failed to fetch attachment files', err);
+  }
+
+  for ( const fileUrl in requestAttachmentFilesUrls.value ) {
+    const image = await fetch(fileUrl);
+    const imageBlob = await image.blob();
+    requestAttachmentFiles.value!.push(imageBlob);
   }
 });
 
@@ -490,19 +498,91 @@ async function handleAddFile(event) {
       continue;
     }
     const file = files[i];
-    const fileUrl = await props.uploadFileFunction(file);
-    requestAttachmentFiles.value?.push(file);
+    requestAttachmentFiles.value!.push(file);
+    const fileUrl = await uploadFile(file);
+    requestAttachmentFilesUrls.value.push(fileUrl);
   }
   fileInput.value!.value = '';
 }
 
-function blobToBase64(blob) {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onloadend = () => resolve(reader.result.split(',')[1]);
-    reader.onerror = reject;
-    reader.readAsDataURL(blob);
-  });
+function removeFileFromList(index: number) {
+  console.log('Removing file at index', index);
+  console.log('RequestAttachmentFiles before', requestAttachmentFiles.value);
+  requestAttachmentFiles.value!.splice(index, 1);
+  console.log('RequestAttachmentFiles after', requestAttachmentFiles.value);
+  requestAttachmentFilesUrls.value.splice(index, 1);
 }
 
+const uploaded = ref(false);
+const progress = ref(0);
+
+async function uploadFile(file: any): Promise<string> {
+  const { name, size, type } = file;
+  let imgPreview = '';
+
+  const extension = name.split('.').pop();
+  const nameNoExtension = name.replace(`.${extension}`, '');
+
+  try {
+    // supports preview
+    if (type.startsWith('image/')) {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        imgPreview = e.target.result as string;
+      }
+      reader.readAsDataURL(file);
+    }
+    
+    const { uploadUrl, uploadExtraParams, filePath, error, previewUrl } = await callAdminForthApi({
+        path: `/plugin/${props.meta.pluginInstanceId}/get_file_upload_url`,
+        method: 'POST',
+        body: {
+          originalFilename: nameNoExtension,
+          contentType: type,
+          size,
+          originalExtension: extension,
+          recordPk: route?.params?.primaryKey,
+        },
+    });
+    if (error) {
+      adminforth.alert({
+        message: t('File was not uploaded because of error: {error}', { error }),
+        variant: 'danger'
+      });
+      imgPreview = null;
+      uploaded.value = false;
+      progress.value = 0;
+      return;
+    }
+
+    const xhr = new XMLHttpRequest();
+    const success = await new Promise((resolve) => {
+      xhr.upload.onprogress = (e) => {
+        if (e.lengthComputable) {
+          progress.value = Math.round((e.loaded / e.total) * 100);
+        }
+      };
+      xhr.addEventListener('loadend', () => {
+        const success = xhr.readyState === 4 && xhr.status === 200;
+        // try to read response
+        resolve(success);
+      });
+      xhr.open('PUT', uploadUrl, true);
+      xhr.setRequestHeader('Content-Type', type);
+      uploadExtraParams && Object.entries(uploadExtraParams).forEach(([key, value]: [string, string]) => {
+        xhr.setRequestHeader(key, value);
+      })
+      xhr.send(file);
+    });
+
+    if (success) {
+      imgPreview = previewUrl;    
+    } else {
+      throw new Error('File upload failed');
+    }
+  } catch (err) {
+    console.error('File upload failed', err);
+  }
+  return imgPreview;
+}
 </script>
