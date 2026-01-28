@@ -450,11 +450,10 @@ export default class UploadPlugin extends AdminForthPlugin {
       path: `/plugin/${this.pluginInstanceId}/create-image-generation-job`,
       handler: async ({ body, adminUser, headers }) => {
         const { prompt, recordId, requestAttachmentFiles } = body;
-
         const jobId = randomUUID();
         jobs.set(jobId, { status: "in_progress" });
 
-        this.generateImages(jobId, prompt, recordId, requestAttachmentFiles, adminUser, headers);
+        this.generateImages(jobId, prompt, requestAttachmentFiles, recordId, adminUser, headers);
         setTimeout(() => jobs.delete(jobId), 1_800_000);
         setTimeout(() => {jobs.set(jobId, { status: "timeout" });}, 300_000);
 
