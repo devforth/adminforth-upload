@@ -1,7 +1,8 @@
 <template>
   <div class="relative w-full">
       <ImageGenerator v-if="showImageGen" @close="showImageGen = false" :record="record" :meta="meta" 
-        @uploadImage="uploadGeneratedImage"  
+        @uploadImage="uploadGeneratedImage"
+        :humanifySize="humanifySize"  
       ></ImageGenerator>
 
       <button v-if="meta.generateImages" 
