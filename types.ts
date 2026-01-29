@@ -200,3 +200,16 @@ export type UploadFromBufferParams = {
    */
   recordAttributes?: Record<string, any>;
 };
+
+/**
+ * Parameters for the UploadPlugin.uploadFromBufferToExistingRecord API.
+ * Used to upload a binary file buffer and update the path column
+ * of an already existing record identified by its primary key.
+ */
+export type UploadFromBufferToExistingRecordParams = UploadFromBufferParams & {
+  /**
+   * Primary key value of the existing record whose file path
+   * should be replaced.
+   */
+  recordId: any;
+};

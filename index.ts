@@ -1,5 +1,5 @@
 
-import { PluginOptions, UploadFromBufferParams } from './types.js';
+import { PluginOptions, UploadFromBufferParams, UploadFromBufferToExistingRecordParams } from './types.js';
 import { AdminForthPlugin, AdminForthResourceColumn, AdminForthResource, Filters, IAdminForth, IHttpServer, suggestIfTypo, RateLimiter, AdminUser, HttpExtra } from "adminforth";
 import { Readable } from "stream";
 import { randomUUID } from "crypto";
@@ -549,22 +549,19 @@ export default class UploadPlugin extends AdminForthPlugin {
         return { error: 'failed to generate preview URL' };
       },
     });
-
-
   }
   
-
   /*
    * Uploads a file from a buffer, creates a record in the resource, and returns the file path and preview URL.
    */
-  async uploadFromBuffer({
+  async uploadFromBufferToNewRecord({
     filename,
     contentType,
     buffer,
     adminUser,
     extra,
     recordAttributes,
-  }: UploadFromBufferParams): Promise<{ path: string; previewUrl: string }> {
+  }: UploadFromBufferParams): Promise<{ path: string; previewUrl: string; newRecordPk: any }> {
     if (!filename || !contentType || !buffer) {
       throw new Error('filename, contentType and buffer are required');
     }
@@ -648,7 +645,7 @@ export default class UploadPlugin extends AdminForthPlugin {
       throw new Error('resourceConfig is not initialized yet');
     }
 
-    const { error: createError } = await this.adminforth.createResourceRecord({
+    const { error: createError, createdRecord, newRecordId }: any = await this.adminforth.createResourceRecord({
       resource: this.resourceConfig,
       record: { ...(recordAttributes ?? {}), [this.options.pathColumnName]: filePath },
       adminUser,
@@ -662,6 +659,164 @@ export default class UploadPlugin extends AdminForthPlugin {
         // best-effort cleanup, ignore error
       }
       throw new Error(`Error creating record after upload: ${createError}`);
+    }
+
+    const pkColumn = this.resourceConfig.columns.find((column: any) => column.primaryKey);
+    const pkName = pkColumn?.name;
+    const newRecordPk = newRecordId ?? (pkName && createdRecord ? createdRecord[pkName] : undefined);
+
+    let previewUrl: string;
+    if (this.options.preview?.previewUrl) {
+      previewUrl = this.options.preview.previewUrl({ filePath });
+    } else {
+      previewUrl = await this.options.storageAdapter.getDownloadUrl(filePath, 1800);
+    }
+
+    return {
+      path: filePath,
+      previewUrl,
+      newRecordPk,
+    };
+  }
+
+  /*
+   * Uploads a file from a buffer and updates an existing record's path column.
+   * If the newly generated storage path would be the same as the current path,
+   * throws an error to avoid potential caching issues.
+   */
+  async uploadFromBufferToExistingRecord({
+    recordId,
+    filename,
+    contentType,
+    buffer,
+    adminUser,
+    extra,
+  }: UploadFromBufferToExistingRecordParams): Promise<{ path: string; previewUrl: string }> {
+    if (recordId === undefined || recordId === null) {
+      throw new Error('recordId is required');
+    }
+
+    if (!filename || !contentType || !buffer) {
+      throw new Error('filename, contentType and buffer are required');
+    }
+
+    if (!this.resourceConfig) {
+      throw new Error('resourceConfig is not initialized yet');
+    }
+
+    const pkColumn = this.resourceConfig.columns.find((column: any) => column.primaryKey);
+    const pkName = pkColumn?.name;
+    if (!pkName) {
+      throw new Error('Primary key column not found in resource configuration');
+    }
+
+    const existingRecord = await this.adminforth
+      .resource(this.resourceConfig.resourceId)
+      .get([Filters.EQ(pkName, recordId)]);
+
+    if (!existingRecord) {
+      throw new Error(`Record with id ${recordId} not found`);
+    }
+
+    const lastDotIndex = filename.lastIndexOf('.');
+    if (lastDotIndex === -1) {
+      throw new Error('filename must contain an extension');
+    }
+
+    const originalExtension = filename.substring(lastDotIndex + 1).toLowerCase();
+    const originalFilename = filename.substring(0, lastDotIndex);
+
+    if (this.options.allowedFileExtensions && !this.options.allowedFileExtensions.includes(originalExtension)) {
+      throw new Error(
+        `File extension "${originalExtension}" is not allowed, allowed extensions are: ${this.options.allowedFileExtensions.join(', ')}`
+      );
+    }
+
+    let nodeBuffer: Buffer;
+    if (Buffer.isBuffer(buffer)) {
+      nodeBuffer = buffer;
+    } else if (buffer instanceof ArrayBuffer) {
+      nodeBuffer = Buffer.from(buffer);
+    } else if (ArrayBuffer.isView(buffer)) {
+      nodeBuffer = Buffer.from(buffer.buffer, buffer.byteOffset, buffer.byteLength);
+    } else {
+      throw new Error('Unsupported buffer type');
+    }
+
+    const size = nodeBuffer.byteLength;
+    if (this.options.maxFileSize && size > this.options.maxFileSize) {
+      throw new Error(
+        `File size ${size} is too large. Maximum allowed size is ${this.options.maxFileSize}`
+      );
+    }
+
+    const existingValue = existingRecord[this.options.pathColumnName];
+    const existingPaths = this.normalizePaths(existingValue);
+
+    const filePath: string = this.options.filePath({
+      originalFilename,
+      originalExtension,
+      contentType,
+      record: existingRecord,
+    });
+
+    if (filePath.startsWith('/')) {
+      throw new Error('s3Path should not start with /, please adjust s3path function to not return / at the start of the path');
+    }
+
+    if (existingPaths.includes(filePath)) {
+      throw new Error('New file path cannot be the same as existing path to avoid caching issues');
+    }
+
+    const { uploadUrl, uploadExtraParams } = await this.options.storageAdapter.getUploadSignedUrl(
+      filePath,
+      contentType,
+      1800,
+    );
+
+    const headers: Record<string, string> = {
+      'Content-Type': contentType,
+    };
+    if (uploadExtraParams) {
+      Object.entries(uploadExtraParams).forEach(([key, value]) => {
+        headers[key] = value as string;
+      });
+    }
+
+    const resp = await fetch(uploadUrl as any, {
+      method: 'PUT',
+      headers,
+      body: nodeBuffer as any,
+    });
+
+    if (!resp.ok) {
+      let bodyText = '';
+      try {
+        bodyText = await resp.text();
+      } catch (e) {
+        // ignore
+      }
+      throw new Error(`Upload failed with status ${resp.status}: ${bodyText}`);
+    }
+
+    const { error: updateError } = await this.adminforth.updateResourceRecord({
+      resource: this.resourceConfig,
+      recordId,
+      oldRecord: existingRecord,
+      adminUser,
+      extra,
+      updates: {
+        [this.options.pathColumnName]: filePath,
+      },
+    } as any);
+
+    if (updateError) {
+      try {
+        await this.markKeyForDeletion(filePath);
+      } catch (e) {
+        // best-effort cleanup, ignore error
+      }
+      throw new Error(`Error updating record after upload: ${updateError}`);
     }
 
     let previewUrl: string;
