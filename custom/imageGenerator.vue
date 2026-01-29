@@ -64,8 +64,9 @@
                   @change="handleAddFile"
                   accept="image/*" 
                 />
-                <button v-if="!uploading" @click="fileInput?.click()" type="button" class="group hover:border-gray-500 transition border-gray-300 flex items-center justify-center w-20 h-20 border-2 border-dashed rounded-md">
+                <button v-if="!uploading" @click="fileInput?.click()" type="button" class="relative group hover:border-gray-500 transition border-gray-300 flex items-center justify-center w-20 h-20 border-2 border-dashed rounded-md">
                   <IconCloseOutline class="group-hover:text-gray-500 transition rotate-45 w-10 h-10 text-gray-300 hover:text-gray-300" />
+                  <p class="text-gray-300 group-hover:text-gray-500 transition absolute bottom-0">Ctrl + v</p>
                 </button>
                 <Skeleton v-else type="image" class="w-20 h-20" />
               </div>
@@ -201,7 +202,7 @@
 
 <script setup lang="ts">
 
-import { ref, onMounted, nextTick, Ref, h, computed, watch, reactive } from 'vue'
+import { ref, onMounted, nextTick, Ref, watch, onUnmounted } from 'vue'
 import { Carousel } from 'flowbite';
 import { callAdminForthApi } from '@/utils';
 import { useI18n } from 'vue-i18n';
@@ -488,8 +489,11 @@ watch(zoomedImage, async (val) => {
   }
 })
 
-async function handleAddFile(event) {
-  const files = event.target.files;
+async function handleAddFile(event, clipboardFile = null) {
+  if (clipboardFile) {
+    clipboardFile = renameFile(clipboardFile, `pasted_image_${Date.now()}.png`);
+  }
+  const files = event?.target?.files || (clipboardFile ? [clipboardFile] : []);
   for (let i = 0; i < files.length; i++) {
     if (requestAttachmentFiles.value.find((f: any) => f.name === files[i].name)) {
       adminforth.alert({
@@ -583,4 +587,30 @@ async function uploadFile(file: any): Promise<string> {
   uploading.value = false;
   return imgPreview;
 }
+
+async function uploadImageOnPaste(event) {
+  const items = event.clipboardData?.items;
+  if (!items) return;
+
+  for (let item of items) {
+    if (item.type.startsWith('image/')) {
+      const file = item.getAsFile();
+      if (file) {
+        await handleAddFile(null, file);
+      }
+    }
+  }
+}
+
+function renameFile(file, newName) {
+  return new File([file], newName, { type: file.type });
+}
+
+onMounted(() => {
+  document.addEventListener('paste', uploadImageOnPaste);
+});
+
+onUnmounted(() => {
+  document.removeEventListener('paste', uploadImageOnPaste);
+});
 </script>
