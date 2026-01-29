@@ -107,37 +107,12 @@ export default class UploadPlugin extends AdminForthPlugin {
 
   private async generateImages(jobId: string, prompt: string,requestAttachmentFiles: string[], recordId: any, adminUser: any, headers: any) {
     if (this.options.generation.rateLimit?.limit) {
-      // rate limit
-      // const { error } = RateLimiter.checkRateLimit(
-      //   this.pluginInstanceId, 
-      //   this.options.generation.rateLimit?.limit,
-      //   this.adminforth.auth.getClientIp(headers),
-      // );
       if (!await this.rateLimiter.consume(`${this.pluginInstanceId}-${this.adminforth.auth.getClientIp(headers)}`)) {
         jobs.set(jobId, { status: "failed", error: this.options.generation.rateLimit.errorMessage });
         return { error: this.options.generation.rateLimit.errorMessage };
       }
     }
     let attachmentFiles = requestAttachmentFiles;
-    // if (this.options.generation.attachFiles) {
-    //   // TODO - does it require additional allowed action to check this record id has access to get the image?
-    //   // or should we mention in docs that user should do validation in method itself
-    //   const record = await this.adminforth.resource(this.resourceConfig.resourceId).get(
-    //     [Filters.EQ(this.resourceConfig.columns.find(c => c.primaryKey)?.name, recordId)]
-    //   );
-
-
-    //   if (!record) {
-    //     return { error: `Record with id ${recordId} not found` };
-    //   }
-      
-    //   attachmentFiles = await this.options.generation.attachFiles({ record, adminUser });
-    //   // if files is not array, make it array
-    //   if (!Array.isArray(attachmentFiles)) {
-    //     attachmentFiles = [attachmentFiles];
-    //   }
-
-    // }
     
     let error: string | undefined = undefined;
 
