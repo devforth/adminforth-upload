@@ -65,8 +65,10 @@
                   accept="image/*" 
                 />
                 <button v-if="!uploading" @click="fileInput?.click()" type="button" class="relative group hover:border-gray-500 transition border-gray-300 flex items-center justify-center w-20 h-20 border-2 border-dashed rounded-md">
-                  <IconCloseOutline class="group-hover:text-gray-500 transition rotate-45 w-10 h-10 text-gray-300 hover:text-gray-300" />
-                  <p class="text-gray-300 group-hover:text-gray-500 transition absolute bottom-0">Ctrl + v</p>
+                  <div class="flex flex-col items-center justify-center gap-2 mt-4 mb-4">
+                    <IconCloseOutline class="group-hover:text-gray-500 transition rotate-45 w-6 h-6 text-gray-300 hover:text-gray-300" />
+                    <p class="text-gray-300 group-hover:text-gray-500 transition bottom-0">Ctrl + v</p>
+                  </div>
                 </button>
                 <Skeleton v-else type="image" class="w-20 h-20" />
               </div>
