@@ -1,5 +1,14 @@
 
-import { PluginOptions, UploadFromBufferParams, UploadFromBufferToExistingRecordParams } from './types.js';
+import {
+  PluginOptions,
+  UploadFromBufferParams,
+  UploadFromBufferToExistingRecordParams,
+  GetUploadUrlForExistingRecordParams,
+  GetUploadUrlForNewRecordParams,
+  CommitUrlToUpdateExistingRecordParams,
+  CommitUrlToNewRecordParams,
+  GetUploadUrlParams,
+} from './types.js';
 import { AdminForthPlugin, AdminForthResourceColumn, AdminForthResource, Filters, IAdminForth, IHttpServer, suggestIfTypo, RateLimiter, AdminUser, HttpExtra } from "adminforth";
 import { Readable } from "stream";
 import { randomUUID } from "crypto";
@@ -829,6 +838,290 @@ export default class UploadPlugin extends AdminForthPlugin {
     return {
       path: filePath,
       previewUrl,
+    };
+  }
+
+  /**
+   * Generates a new signed upload URL for future uploading from the frontend via a direct upload (e.g. using fetch + FormData).
+   *
+   * After the upload, file still will be marked for auto-deletion after short time, so to keep it permanently,
+   * you need to either:
+   *  * Use commitUrlToExistingRecord to commit the URL to an existing record. This will replace the path in the existing record and will do a cleanup of the old 
+   *    file pointed in this path column.
+   *  * If you want to create a new record with this URL, you can call commitUrlToNewRecord, which will create a new record and set the path column to the uploaded file path.
+   *  * Write URL to special field called pathColumnName so afterSave hook installed by the plugin will automatically mark as not candidate for auto-deletion
+   *
+   * ```ts
+   * const file = input.files[0];
+   *
+   * // 1) Ask your backend to call getUploadUrlForExistingRecord
+   * const { uploadUrl, filePath, uploadExtraParams } = await fetch('/api/uploads/get-url-existing', {
+   *   method: 'POST',
+   *   headers: { 'Content-Type': 'application/json' },
+   *   body: JSON.stringify({
+   *     recordId,
+   *     filename: file.name,
+   *     contentType: file.type,
+   *     size: file.size,
+   *   }),
+   * }).then(r => r.json());
+   *
+   * const formData = new FormData();
+   * if (uploadExtraParams) {
+   *   Object.entries(uploadExtraParams).forEach(([key, value]) => {
+   *     formData.append(key, value as string);
+   *   });
+   * }
+   * formData.append('file', file);
+   *
+   * // 2) Direct upload from the browser to storage (multipart/form-data)
+   * const uploadResp = await fetch(uploadUrl, {
+   *   method: 'POST',
+   *   body: formData,
+   * });
+   * if (!uploadResp.ok) {
+   *   throw new Error('Upload failed');
+   * }
+   *
+   * // 3) Tell your backend to commit the URL to the record e.g. from rest API call
+   * await fetch('/api/uploads/commit-existing', {
+   *   method: 'POST',
+   *   headers: { 'Content-Type': 'application/json' },
+   *   body: JSON.stringify({ recordId, filePath }),
+   * });
+   * ```
+   */
+  async getUploadUrl({
+    recordId,
+    filename,
+    contentType,
+    size,
+  }: GetUploadUrlParams): Promise<{
+    uploadUrl: string;
+    filePath: string;
+    uploadExtraParams?: Record<string, string>;
+    pathColumnName: string;
+  }> {
+    if (!filename || !contentType) {
+      throw new Error('filename and contentType are required');
+    }
+    if (!this.resourceConfig) {
+      throw new Error('resourceConfig is not initialized yet');
+    }
+
+    const pkColumn = this.resourceConfig.columns.find((column: any) => column.primaryKey);
+    const pkName = pkColumn?.name;
+    if (!pkName) {
+      throw new Error('Primary key column not found in resource configuration');
+    }
+
+    let existingRecord: any = undefined;
+    if (recordId !== undefined && recordId !== null) {
+      existingRecord = await this.adminforth
+        .resource(this.resourceConfig.resourceId)
+        .get([Filters.EQ(pkName, recordId)]);
+
+      if (!existingRecord) {
+        throw new Error(`Record with id ${recordId} not found`);
+      }
+    }
+
+    const lastDotIndex = filename.lastIndexOf('.');
+    if (lastDotIndex === -1) {
+      throw new Error('filename must contain an extension');
+    }
+
+    const originalExtension = filename.substring(lastDotIndex + 1).toLowerCase();
+    const originalFilename = filename.substring(0, lastDotIndex);
+
+    if (
+      this.options.allowedFileExtensions &&
+      !this.options.allowedFileExtensions.includes(originalExtension)
+    ) {
+      throw new Error(
+        `File extension "${originalExtension}" is not allowed, allowed extensions are: ${this.options.allowedFileExtensions.join(
+          ', ',
+        )}`,
+      );
+    }
+
+    if (size != null && this.options.maxFileSize && size > this.options.maxFileSize) {
+      throw new Error(
+        `File size ${size} is too large. Maximum allowed size is ${this.options.maxFileSize}`,
+      );
+    }
+
+    const existingValue = existingRecord?.[this.options.pathColumnName];
+    const existingPaths = existingValue ? this.normalizePaths(existingValue) : undefined;
+
+    const filePath: string = this.options.filePath({
+      originalFilename,
+      originalExtension,
+      contentType,
+      record: existingRecord,
+    });
+
+    if (filePath.startsWith('/')) {
+      throw new Error(
+        's3Path should not start with /, please adjust s3path function to not return / at the start of the path',
+      );
+    }
+
+    if (existingPaths && existingPaths.includes(filePath)) {
+      throw new Error(
+        'New file path cannot be the same as existing path to avoid caching issues',
+      );
+    }
+
+    const { uploadUrl, uploadExtraParams } = await this.options.storageAdapter.getUploadSignedUrl(
+      filePath,
+      contentType,
+      1800,
+    );
+
+    return {
+      uploadUrl,
+      filePath,
+      uploadExtraParams,
+      pathColumnName: this.options.pathColumnName,
+    };
+  }
+
+  /**
+   * Commits a previously generated upload URL to an existing record.
+   *
+   * Never call this method from edit afterSave and beforeSave hooks of the same resource,
+   * as it would create infinite loop of record updates. 
+   * You should call this method from your own custom API endpoint after the upload is done.
+   */
+  async commitUrlToUpdateExistingRecord({
+    recordId,
+    filePath,
+    adminUser,
+    extra,
+  }: CommitUrlToUpdateExistingRecordParams): Promise<{ path: string; previewUrl: string }> {
+    if (recordId === undefined || recordId === null) {
+      throw new Error('recordId is required');
+    }
+    if (!filePath) {
+      throw new Error('filePath is required');
+    }
+    if (!this.resourceConfig) {
+      throw new Error('resourceConfig is not initialized yet');
+    }
+
+    const pkColumn = this.resourceConfig.columns.find((column: any) => column.primaryKey);
+    const pkName = pkColumn?.name;
+    if (!pkName) {
+      throw new Error('Primary key column not found in resource configuration');
+    }
+
+    const existingRecord = await this.adminforth
+      .resource(this.resourceConfig.resourceId)
+      .get([Filters.EQ(pkName, recordId)]);
+
+    if (!existingRecord) {
+      throw new Error(`Record with id ${recordId} not found`);
+    }
+
+    const existingValue = existingRecord[this.options.pathColumnName];
+    const existingPaths = this.normalizePaths(existingValue);
+
+    if (existingPaths.includes(filePath)) {
+      throw new Error(
+        'New file path cannot be the same as existing path to avoid caching issues',
+      );
+    }
+
+    const { error: updateError } = await this.adminforth.updateResourceRecord({
+      resource: this.resourceConfig,
+      recordId,
+      oldRecord: existingRecord,
+      adminUser,
+      extra,
+      updates: {
+        [this.options.pathColumnName]: filePath,
+      },
+    } as any);
+
+    if (updateError) {
+      try {
+        await this.markKeyForDeletion(filePath);
+      } catch (e) {
+        // best-effort cleanup, ignore error
+      }
+      throw new Error(`Error updating record after upload: ${updateError}`);
+    }
+
+    let previewUrl: string;
+    if (this.options.preview?.previewUrl) {
+      previewUrl = this.options.preview.previewUrl({ filePath });
+    } else {
+      previewUrl = await this.options.storageAdapter.getDownloadUrl(filePath, 1800);
+    }
+
+    return {
+      path: filePath,
+      previewUrl,
+    };
+  }
+
+  /**
+   * Commits a previously generated upload URL to a new record.
+   * 
+   * Never call this method from create afterSave and beforeSave hooks of the same resource,
+   * as it would create infinite loop of record creations.
+   * 
+   * You should call this method from your own custom API endpoint after the upload is done.
+   */
+  async commitUrlToNewRecord({
+    filePath,
+    adminUser,
+    extra,
+    recordAttributes,
+  }: CommitUrlToNewRecordParams): Promise<{ path: string; previewUrl: string; newRecordPk: any }> {
+    if (!filePath) {
+      throw new Error('filePath is required');
+    }
+    if (!this.resourceConfig) {
+      throw new Error('resourceConfig is not initialized yet');
+    }
+
+    // Mark this key as used so lifecycle rules do not delete it.
+    await this.markKeyForNotDeletion(filePath);
+
+    const { error: createError, createdRecord, newRecordId }: any =
+      await this.adminforth.createResourceRecord({
+        resource: this.resourceConfig,
+        record: { ...(recordAttributes ?? {}), [this.options.pathColumnName]: filePath },
+        adminUser,
+        extra,
+      });
+
+    if (createError) {
+      try {
+        await this.markKeyForDeletion(filePath);
+      } catch (e) {
+        // best-effort cleanup, ignore error
+      }
+      throw new Error(`Error creating record after upload: ${createError}`);
+    }
+
+    const pkColumn = this.resourceConfig.columns.find((column: any) => column.primaryKey);
+    const pkName = pkColumn?.name;
+    const newRecordPk = newRecordId ?? (pkName && createdRecord ? createdRecord[pkName] : undefined);
+
+    let previewUrl: string;
+    if (this.options.preview?.previewUrl) {
+      previewUrl = this.options.preview.previewUrl({ filePath });
+    } else {
+      previewUrl = await this.options.storageAdapter.getDownloadUrl(filePath, 1800);
+    }
+
+    return {
+      path: filePath,
+      previewUrl,
+      newRecordPk,
     };
   }
 

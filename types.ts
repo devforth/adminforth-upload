@@ -213,3 +213,106 @@ export type UploadFromBufferToExistingRecordParams = UploadFromBufferParams & {
    */
   recordId: any;
 };
+
+/**
+ * Parameters for generating an upload URL for an existing record
+ * that will be uploaded directly from the browser.
+ */
+export type GetUploadUrlParams = {
+  /**
+   * Primary key of the record whose file is being replaced.
+   */
+  recordId?: any;
+
+  /**
+   * Full file name including extension, as provided by the browser.
+   */
+  filename: string;
+
+  /**
+   * MIME type reported by the browser, used as Content-Type for storage.
+   */
+  contentType: string;
+
+  /**
+   * Optional file size in bytes. If provided, it will be validated
+   * against {@link PluginOptions.maxFileSize}.
+   */
+  size?: number;
+};
+
+/**
+ * Parameters for generating an upload URL for a new record
+ * that will be uploaded directly from the browser.
+ */
+export type GetUploadUrlForNewRecordParams = {
+  /**
+   * Full file name including extension, as provided by the browser.
+   */
+  filename: string;
+
+  /**
+   * MIME type reported by the browser, used as Content-Type for storage.
+   */
+  contentType: string;
+
+  /**
+   * Optional file size in bytes. If provided, it will be validated
+   * against {@link PluginOptions.maxFileSize}.
+   */
+  size?: number;
+};
+
+/**
+ * Parameters for committing a previously generated upload URL
+ * to an existing record. This is used after the browser finished
+ * uploading directly to the storage provider.
+ */
+export type CommitUrlToUpdateExistingRecordParams = {
+  /**
+   * Primary key of the record whose file is being replaced.
+   */
+  recordId: any;
+
+  /**
+   * Storage path (key) that was returned by getUploadUrlForExistingRecord.
+   */
+  filePath: string;
+
+  /**
+   * Authenticated admin user on whose behalf the record is updated.
+   */
+  adminUser: AdminUser;
+
+  /**
+   * Optional HTTP context (headers, IP, etc.).
+   */
+  extra?: HttpExtra;
+};
+
+/**
+ * Parameters for committing a previously generated upload URL
+ * to a new record. This is used after the browser finished
+ * uploading directly to the storage provider.
+ */
+export type CommitUrlToNewRecordParams = {
+  /**
+   * Storage path (key) that was returned by getUploadUrlForNewRecord.
+   */
+  filePath: string;
+
+  /**
+   * Authenticated admin user on whose behalf the record is created.
+   */
+  adminUser: AdminUser;
+
+  /**
+   * Optional HTTP context (headers, IP, etc.).
+   */
+  extra?: HttpExtra;
+
+  /**
+   * Optional additional attributes for the new record.
+   */
+  recordAttributes?: Record<string, any>;
+};
