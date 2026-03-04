@@ -32,7 +32,9 @@
         </template>
       </div>
     </template>
-    
+    <template v-else>
+      {{ t('No image') }}
+    </template>
     
   </div>
 </template>
@@ -66,6 +68,9 @@
 import { ref, computed , onMounted, watch, nextTick} from 'vue'
 import mediumZoom from 'medium-zoom'
 import { useRoute } from 'vue-router'
+import { useI18n } from 'vue-i18n';
+
+const { t } = useI18n();
 
 const img = ref(null);
 const zoom = ref(null);
