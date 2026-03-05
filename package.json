@@ -13,7 +13,6 @@
     "url": "https://github.com/devforth/adminforth-upload.git"
   },
   "scripts": {
-    "prepare": "npm link adminforth",
     "build": "tsc && rsync -av --exclude 'node_modules' custom dist/"
   },
   "type": "module",
@@ -24,7 +23,7 @@
     "@aws-sdk/s3-request-presigner": "^3.629.0"
   },
   "peerDependencies": {
-    "adminforth": "next"
+    "adminforth": "^2.24.0"
   },
   "keywords": [
     "adminforth",
@@ -43,6 +42,7 @@
       [
         "semantic-release-slack-bot",
         {
+          "packageName": "@adminforth/upload",
           "notifyOnSuccess": true,
           "notifyOnFail": true,
           "slackIcon": ":package:",
