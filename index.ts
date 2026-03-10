@@ -358,7 +358,7 @@ export default class UploadPlugin extends AdminForthPlugin {
     this.adminforth = adminforth;
     
     if (this.options.generation) {
-      const template = this.options.generation?.generationPrompt;
+      const template = this.options.generation?.generationPrompt || '';
       const regex = /{{(.*?)}}/g;
       const matches = template.match(regex);
       if (matches) {
