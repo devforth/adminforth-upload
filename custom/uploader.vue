@@ -175,7 +175,7 @@ onMounted(async () => {
   if (!uploaded.value && props.record?.[previewColumnName]) {
     if (Array.isArray(props.record[previewColumnName]) && props.record[previewColumnName].length > 0) {
       const resp = await callAdminForthApi({
-        path: `/plugin/${props.meta.pluginInstanceId}/get-file-preview-url`,
+        path: `/plugin/${props.meta.pluginInstanceId}/get-file-download-url`,
         method: 'POST',
         body: { filePath: existingFilePath },
       });
