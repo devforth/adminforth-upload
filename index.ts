@@ -162,6 +162,22 @@ export default class UploadPlugin extends AdminForthPlugin {
     return { ok: true };
   };
 
+  async isInternalUrl(url: string): Promise<boolean> {
+    const adapter = this.options.storageAdapter as any;
+
+    if (adapter && typeof adapter.isInternalUrl === 'function') {
+      try {
+        return await adapter.isInternalUrl(url);
+      } catch (err) {
+        console.error(`[UploadPlugin] Error calling isInternalUrl on adapter:`, err);
+        return false;
+      }
+    } else {
+      throw new Error ('Plese update storage adapter')
+    }
+    return false;
+  }
+
   instanceUniqueRepresentation(pluginOptions: any) : string {
     return `${pluginOptions.pathColumnName}`;
   }
