@@ -60,7 +60,13 @@ export default class UploadPlugin extends AdminForthPlugin {
           )
         }
 
-        const filePath: string = this.options.filePath({ originalFilename, originalExtension, contentType, record });
+        const sanitizeFileName = (name) => {
+          return name
+            .normalize("NFKD")                
+            .replace(/[^a-zA-Z0-9._-]/g, "_")
+        }        
+        const fileName = sanitizeFileName(originalFilename);  
+        const filePath: string = this.options.filePath({ originalFilename: fileName, originalExtension, contentType, record });
         if (filePath.startsWith('/')) {
           throw new Error('s3Path should not start with /, please adjust s3path function to not return / at the start of the path');
         }
