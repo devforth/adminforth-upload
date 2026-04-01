@@ -164,9 +164,15 @@ export default class UploadPlugin extends AdminForthPlugin {
 
   async isInternalUrl(url: string): Promise<boolean> {
     const adapter = this.options.storageAdapter as any;
-
     if (adapter && typeof adapter.isInternalUrl === 'function') {
       try {
+        if(this.options.preview?.previewUrl) {
+          const previewUrl = this.options.preview.previewUrl({ filePath: 'test_filepath' });
+          if (url.startsWith(previewUrl.replace('test_filepath', ''))) {
+            return true;
+          }
+          return false;
+        }
         return await adapter.isInternalUrl(url);
       } catch (err) {
         console.error(`[UploadPlugin] Error calling isInternalUrl on adapter:`, err);
