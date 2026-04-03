@@ -127,7 +127,7 @@ const maxWidth = computed(() => {
     ? (props.meta.maxShowWidth || props.meta.maxWidth)
     : (props.meta.maxListWidth || props.meta.maxWidth);
 
-  return width ? { maxWidth: width } : {};
+  return width ? { maxWidth: `min(100%, ${width})` } : {};
 });
 
 const minWidth = computed(() => {
