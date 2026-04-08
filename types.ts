@@ -1,6 +1,8 @@
 import { AdminUser, ImageGenerationAdapter, StorageAdapter, HttpExtra } from "adminforth";
+import  {type PluginsCommonOptions } from "adminforth";
 
-export type PluginOptions = {
+
+export interface PluginOptions extends PluginsCommonOptions {
 
   /**
    * The name of the column where the path to the uploaded file is stored.
