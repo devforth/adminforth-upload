@@ -7,7 +7,7 @@
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],
-  "author": "",
+  "author": "DevForth (https://devforth.io)",
   "license": "ISC",
   "dependencies": {
     "@iconify-prerendered/vue-mdi": "^0.25.1718880438",

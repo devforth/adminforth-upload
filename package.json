@@ -16,7 +16,7 @@
     "build": "tsc && rsync -av --exclude 'node_modules' custom dist/"
   },
   "type": "module",
-  "author": "devforth",
+  "author": "DevForth (https://devforth.io)",
   "license": "MIT",
   "dependencies": {
     "@aws-sdk/client-s3": "^3.629.0",
