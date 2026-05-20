@@ -404,11 +404,12 @@ async function generateImages() {
         break;
       };
       jobStatus = jobResponse?.job?.status;
-      if (jobStatus === 'failed') {
-        error = jobResponse?.job?.error || $t('Image generation job failed');
-      }
-      if (jobStatus === 'timeout') {
-        error = jobResponse?.job?.error || $t('Image generation job timeout');
+      if (jobResponse?.job?.error) {
+        error = jobResponse.job.error;
+      } else if (jobStatus === 'failed') {
+        error = $t('Image generation job failed');
+      } else if (jobStatus === 'timeout') {
+        error = $t('Image generation job timeout');
       }
     }
     await new Promise((resolve) => setTimeout(resolve, 2000));
