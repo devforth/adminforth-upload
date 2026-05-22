@@ -472,14 +472,24 @@ export default class UploadPlugin extends AdminForthPlugin {
     server.endpoint({
       method: 'POST',
       path: `/plugin/${this.pluginInstanceId}/get-image-generation-job-status`,
-      handler: async ({ body, adminUser, headers }) => {
+      handler: async ({ body, adminUser, headers, response }) => {
         const jobId = body.jobId;
         if (!jobId) {
-          return { error: "Can't find job id" };
+          response.setStatus(400);
+          return { ok: false, error: "Can't find job id" };
         }
         const job = jobs.get(jobId);
         if (!job) {
-          return { error: "Job not found" };
+          response.setStatus(404);
+          return { ok: false, error: "Job not found" };
+        }
+        if (job.status === 'failed' || job.error) {
+          response.setStatus(500);
+
+          return {
+            ok: false,
+            job,
+          };
         }
         return { ok: true, job };
       }
