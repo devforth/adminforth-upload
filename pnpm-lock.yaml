@@ -19,8 +19,8 @@ importers:
         specifier: ^22.10.7
         version: 22.19.13
       adminforth:
-        specifier: ^2.66.0
-        version: 2.66.0(@types/node@22.19.13)(typescript@5.9.3)
+        specifier: 2.70.0
+        version: 2.70.0(@types/node@22.19.13)(typescript@5.9.3)
       semantic-release:
         specifier: ^24.2.1
         version: 24.2.9(typescript@5.9.3)
@@ -788,8 +788,8 @@ packages:
     resolution: {integrity: sha512-PYAthTa2m2VKxuvSD3DPC/Gy+U+sOA1LAuT8mkmRuvw+NACSaeXEQ+NHcVF7rONl6qcaxV3Uuemwawk+7+SJLw==}
     engines: {node: '>= 0.6'}
 
-  adminforth@2.66.0:
-    resolution: {integrity: sha512-njVTOLsmOD2LW9BMZcXiZ2TAEYKdHbimJG5Kx3Gd6ti74HHpEnvygtV7V23PGBCFFzsTqZUeHK89xGikyymgGA==}
+  adminforth@2.70.0:
+    resolution: {integrity: sha512-E/zvEtAU7Woh3nLR7xrfgaVtH0Y+NAQnbSlZhTMpSpjrwwwGPAmE6lKsEaVAD7T+y1TvNhk+yCh/Mb6me3owzA==}
     hasBin: true
 
   agent-base@7.1.4:
@@ -1439,11 +1439,6 @@ packages:
 
   graceful-fs@4.2.11:
     resolution: {integrity: sha512-RbJ5/jmFcNNCcDV5o9eTnBLJ/HszWV0P73bc+Ff4nS/rJj+YaS6IGyiOL0VoBYX+l1Wrl3k63h/KrH+nhJ0XvQ==}
-
-  handlebars@4.7.8:
-    resolution: {integrity: sha512-vafaFqs8MZkRrSX7sFVUdo3ap/eNiLnb4IakshzvP56X5Nr1iGKAIqdX6tMlm6HcNRIkr6AxO5jFEoJzzpT8aQ==}
-    engines: {node: '>=0.4.7'}
-    hasBin: true
 
   handlebars@4.7.9:
     resolution: {integrity: sha512-4E71E0rpOaQuJR2A3xDZ+GM1HyWYv1clR58tC8emQNeQe3RH7MAzSbat+V0wG78LQBo6m6bzSG/L4pBuCsgnUQ==}
@@ -4145,7 +4140,7 @@ snapshots:
       mime-types: 2.1.35
       negotiator: 0.6.3
 
-  adminforth@2.66.0(@types/node@22.19.13)(typescript@5.9.3):
+  adminforth@2.70.0(@types/node@22.19.13)(typescript@5.9.3):
     dependencies:
       '@babel/parser': 7.29.0
       '@clickhouse/client': 1.18.1
@@ -4454,7 +4449,7 @@ snapshots:
     dependencies:
       '@simple-libs/stream-utils': 1.2.0
       conventional-commits-filter: 5.0.0
-      handlebars: 4.7.8
+      handlebars: 4.7.9
       meow: 13.2.0
       semver: 7.7.4
 
@@ -4837,15 +4832,6 @@ snapshots:
   graceful-fs@4.2.10: {}
 
   graceful-fs@4.2.11: {}
-
-  handlebars@4.7.8:
-    dependencies:
-      minimist: 1.2.8
-      neo-async: 2.6.2
-      source-map: 0.6.1
-      wordwrap: 1.0.0
-    optionalDependencies:
-      uglify-js: 3.19.3
 
   handlebars@4.7.9:
     dependencies:
