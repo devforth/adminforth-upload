@@ -1,215 +1,215 @@
 
 <template>
   <!-- Main modal -->
-  <div tabindex="-1" class="overflow-y-auto overflow-x-hidden fixed top-0 right-0 left-0 bottom-0 z-50 flex justify-center items-center w-full md:inset-0 h-full max-h-full bg-white bg-opacity-50 dark:bg-gray-900 dark:bg-opacity-50">
-    <div class="relative p-4 w-10/12 max-w-full max-h-full ">
-        <!-- Modal content -->
-        <div class="relative bg-white rounded-lg shadow-xl dark:bg-gray-700">
-            <!-- Modal header -->
-            <div class="flex items-center justify-between p-3 md:p-4 border-b rounded-t dark:border-gray-600">
-                <h3 class="text-xl font-semibold text-gray-900 dark:text-white">
-                    {{ $t('Generate image with AI') }}
-                </h3>
-                <button type="button" 
-                  @click="() => {stopGeneration = true; emit('close')}"
-                  class="text-gray-400 bg-transparent hover:bg-gray-200 hover:text-gray-900 rounded-lg text-sm w-8 h-8 ms-auto inline-flex justify-center items-center dark:hover:bg-gray-600 dark:hover:text-white" >
-                    <svg class="w-3 h-3" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 14 14">
-                        <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m1 1 6 6m0 0 6 6M7 7l6-6M7 7l-6 6"/>
-                    </svg>
-                    <span class="sr-only">{{ $t('Close modal') }}</span>
-                </button>
-            </div>
-            <!-- Modal body -->
-            <div class="p-4 md:p-5 space-y-4">
-              <!-- PROMPT TEXTAREA -->
-              <!-- Textarea -->
-              <textarea
-                id="message"
-                rows="3"
-                class="block p-2.5 w-full text-sm text-gray-900 bg-gray-50 rounded-lg border border-gray-300 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"
-                :placeholder="$t('Prompt which will be passed to AI network')"
-                v-model="prompt"
-                :title="$t('Prompt which will be passed to AI network')"
-              ></textarea>
+  <div tabindex="-1" class="overflow-y-auto overflow-x-hidden fixed inset-0 z-50 flex justify-center items-center w-full h-full bg-black/50">
+    <div class="relative p-4 w-11/12 max-w-5xl max-h-full ">
+      <!-- Modal content -->
+      <div class="relative bg-white rounded-xl shadow-2xl dark:bg-gray-800">
+        <!-- Header -->
+        <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+          <h3 class="text-lg font-semibold text-gray-900 dark:text-white">
+            {{ $t('Generate image with AI') }}
+          </h3>
+          <button type="button" 
+            @click="() => {stopGeneration = true; emit('close') }"
+            class="text-gray-400 bg-transparent hover:bg-gray-100 hover:text-gray-900 rounded-lg w-8 h-8 inline-flex justify-center items-center dark:hover:bg-gray-700 dark:hover:text-white transition" >
+            <svg class="w-3 h-3" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 14 14">
+              <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m1 1 6 6m0 0 6 6M7 7l6-6M7 7l-6 6"/>
+            </svg>
+            <span class="sr-only">{{ $t('Close modal') }}</span>
+          </button>
+        </div>
+        <!-- Modal body -->
+        <div class="px-6 py-5 space-y-4">
+          <!-- PROMPT TEXTAREA -->
+          <!-- Textarea -->
+          <textarea
+            rows="3"
+            class="block p-2.5 w-full text-sm text-gray-900 bg-gray-50 rounded-lg border border-gray-200 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500 resize-none"
+            :placeholder="$t('Prompt which will be passed to AI network')"
+            v-model="prompt"
+            :title="$t('Prompt which will be passed to AI network')"
+          ></textarea>
 
-              <!-- Thumbnails -->
-              <div class="mt-2 flex flex-wrap gap-2">
-                <div class="group relative" v-for="(img, key) in requestAttachmentFilesUrls">
-                  <img
-                    :key="key"
-                    :src="img"
-                    class="w-20 h-20 object-cover rounded cursor-pointer border hover:border-blue-500 transition"
-                    :alt="`Generated image ${key + 1}`"
-                    @click="zoomImage(img)"
-                  />
-                  <div 
-                    class="opacity-0 group-hover:opacity-100 flex items-center justify-center w-5 h-5 bg-black absolute -top-2 -end-2 rounded-full border-2 border-white cursor-pointer hover:border-gray-300 hover:scale-110"
-                    @click="removeFileFromList(key)"  
-                  >
-                    <Tooltip class="absolute top-0 end-0">
-                      <div>
-                        <div class="w-4 h-4 absolute"></div>
-                        <IconCloseOutline class="w-3 h-3 text-white hover:text-gray-300" />
-                      </div>
-                      <template #tooltip>
-                        Remove file
-                      </template>
-                    </Tooltip>
+          <!-- Thumbnails -->
+          <div class="flex flex-wrap gap-2">
+            <div class="group relative" v-for="(img, key) in requestAttachmentFilesUrls" :key="key">
+              <img
+                :src="img"
+                class="w-14 h-14 object-cover rounded-lg cursor-pointer border border-gray-200 hover:border-blue-500 transition"
+                :alt="`Attachment ${key + 1}`"
+                @click="zoomImage(img)"
+              />
+              <div
+                class="opacity-0 group-hover:opacity-100 flex items-center justify-center w-5 h-5 bg-black absolute -top-2 -end-2 rounded-full border-2 border-white cursor-pointer hover:border-gray-300 hover:scale-110"
+                @click="removeFileFromList(key)"
+              >
+                <Tooltip class="absolute top-0 end-0">
+                  <div>
+                    <div class="w-4 h-4 absolute"></div>
+                    <IconCloseOutline class="w-3 h-3 text-white hover:text-gray-300" />
                   </div>
+                  <template #tooltip>Remove file</template>
+                </Tooltip>
+              </div>
+            </div>
+            <input ref="fileInput" class="hidden" type="file" @change="handleAddFile" accept="image/*" />
+            <button v-if="!uploading" @click="fileInput?.click()" type="button" class="relative group hover:border-gray-400 transition border-gray-300 flex items-center justify-center w-14 h-14 border-2 border-dashed rounded-lg">
+              <div class="flex flex-col items-center justify-center gap-1">
+                <IconCloseOutline class="group-hover:text-gray-500 transition rotate-45 w-5 h-5 text-gray-300" />
+                <p class="text-gray-300 group-hover:text-gray-500 transition text-[10px] leading-none">Ctrl+v</p>
+              </div>
+            </button>
+            <Skeleton v-else type="image" class="w-14 h-14" />
+          </div>
+
+          <div class="grid grid-cols-[1fr_52px_1fr]">
+            <span class="pb-2 text-sm font-medium text-gray-500 dark:text-gray-400">{{ $t('Original image') }}</span>
+            <div></div>
+            <span class="pb-2 text-sm font-medium text-gray-500 dark:text-gray-400">{{ $t('Generated image') }}</span>
+            <div
+              class="rounded-xl overflow-hidden bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 aspect-[4/3] flex items-center justify-center"
+              :class="requestAttachmentFilesUrls.length ? 'cursor-zoom-in' : ''"
+              @click="requestAttachmentFilesUrls.length && zoomImage(requestAttachmentFilesUrls[0])"
+            >
+              <img
+                v-if="requestAttachmentFilesUrls.length"
+                :src="requestAttachmentFilesUrls[0]"
+                class="w-full h-full object-cover"
+              />
+              <span v-else class="text-gray-400 dark:text-gray-500 text-sm">{{ $t('No image') }}</span>
+            </div>
+
+            <div class="flex items-center justify-center">
+              <svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"/>
+              </svg>
+            </div>
+
+            <div class="relative aspect-[4/3]">
+
+              <div 
+                v-if="loading"
+                class=" absolute flex items-center justify-center inset-0 z-40 bg-white/80 dark:bg-gray-900/80 rounded-xl">
+                <svg aria-hidden="true" class="w-8 h-8 text-gray-200 animate-spin dark:text-gray-600 fill-blue-600" viewBox="0 0 100 101" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M100 50.5908C100 78.2051 77.6142 100.591 50 100.591C22.3858 100.591 0 78.2051 0 50.5908C0 22.9766 22.3858 0.59082 50 0.59082C77.6142 0.59082 100 22.9766 100 50.5908ZM9.08144 50.5908C9.08144 73.1895 27.4013 91.5094 50 91.5094C72.5987 91.5094 90.9186 73.1895 90.9186 50.5908C90.9186 27.9921 72.5987 9.67226 50 9.67226C27.4013 9.67226 9.08144 50.5908Z" fill="currentColor"/>
+                  <path d="M93.9676 39.0409C96.393 38.4038 97.8624 35.9116 97.0079 33.5539C95.2932 28.8227 92.871 24.3692 89.8167 20.348C85.8452 15.1192 80.8826 10.7238 75.2124 7.41289C69.5422 4.10194 63.2754 1.94025 56.7698 1.05124C51.7666 0.367541 46.6976 0.446843 41.7345 1.27873C39.2613 1.69328 37.813 4.19778 38.4501 6.62326C39.0873 9.04874 41.5694 10.4717 44.0505 10.1071C47.8511 9.54855 51.7191 9.52689 55.5402 10.0491C60.8642 10.7766 65.9928 12.5457 70.6331 15.2552C75.2735 17.9648 79.3347 21.5619 82.5849 25.841C84.9175 28.9121 86.7997 32.2913 88.1811 35.8758C89.083 38.2158 91.5421 39.6781 93.9676 39.0409Z" fill="currentFill"/>
+                </svg>
+                <span class="sr-only">{{ $t('Loading...') }}</span>
+              </div>
+              <div v-if="loadingTimer" class="absolute inset-0 pt-12 z-40 flex items-center justify-center bg-white/80 dark:bg-gray-900/80 rounded-xl">
+                <div class="text-gray-800 dark:text-gray-100 text-base font-semibold" v-if="!historicalAverage">
+                  {{ formatTime(loadingTimer) }} {{ $t('passed...') }}
                 </div>
-                <input 
-                  ref="fileInput"
-                  class="hidden"
-                  type="file"
-                  @change="handleAddFile"
-                  accept="image/*" 
-                />
-                <button v-if="!uploading" @click="fileInput?.click()" type="button" class="relative group hover:border-gray-500 transition border-gray-300 flex items-center justify-center w-20 h-20 border-2 border-dashed rounded-md">
-                  <div class="flex flex-col items-center justify-center gap-2 mt-4 mb-4">
-                    <IconCloseOutline class="group-hover:text-gray-500 transition rotate-45 w-6 h-6 text-gray-300 hover:text-gray-300" />
-                    <p class="text-gray-300 group-hover:text-gray-500 transition bottom-0">Ctrl + v</p>
-                  </div>
-                </button>
-                <Skeleton v-else type="image" class="w-20 h-20" />
+                <div class="w-48" v-else>
+                  <ProgressBar
+                    class="max-w-full"
+                    :currentValue="loadingTimer < historicalAverage ? loadingTimer : historicalAverage"
+                    :minValue="0"
+                    :maxValue="historicalAverage"
+                    :showValues="false"
+                    :progressFormatter="(_value: number, _percentage: number) => `${ formatTime(loadingTimer) } ( ~ ${ Math.floor( (loadingTimer < historicalAverage ? loadingTimer : historicalAverage) / historicalAverage * 100) }% )`"
+                  />
+                </div>
               </div>
 
-              <!-- Fullscreen Modal -->
-              <div
-                v-if="zoomedImage"
-                class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-80"
-                @click.self="closeZoom"
-              >
-                <img
-                  :src="zoomedImage"
-                  ref="zoomedImg"
-                  class="max-w-full max-h-full rounded-lg object-contain cursor-grab z-75"
-              />
-            </div>
+              <div v-if="errorMessage" class="absolute inset-0 z-40 flex items-center justify-center bg-white/80 dark:bg-gray-900/80 rounded-xl">
+                <div class="text-red-500 dark:text-red-400 font-semibold text-sm text-center px-4">{{ errorMessage }}</div>
+              </div>
 
-              <div class="flex flex-col items-center justify-center w-full relative">
-                <div 
-                  v-if="loading"  
-                  class=" absolute flex items-center justify-center w-full h-full z-40 bg-white/80 dark:bg-gray-900/80 rounded-lg"
+              <div id="gallery" class="relative w-full h-full" data-carousel="static">
+                <div
+                  class="relative w-full h-full overflow-hidden rounded-xl"
+                  :class="images.length > 0 ? 'cursor-zoom-in' : ''"
+                  @click="zoomCurrentImage"
                 >
-                    <div role="status" class="absolute -translate-x-1/2 -translate-y-1/2 top-2/4 left-1/2">
-                        <svg aria-hidden="true" class="w-8 h-8 text-gray-200 animate-spin dark:text-gray-600 fill-blue-600" viewBox="0 0 100 101" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M100 50.5908C100 78.2051 77.6142 100.591 50 100.591C22.3858 100.591 0 78.2051 0 50.5908C0 22.9766 22.3858 0.59082 50 0.59082C77.6142 0.59082 100 22.9766 100 50.5908ZM9.08144 50.5908C9.08144 73.1895 27.4013 91.5094 50 91.5094C72.5987 91.5094 90.9186 73.1895 90.9186 50.5908C90.9186 27.9921 72.5987 9.67226 50 9.67226C27.4013 9.67226 9.08144 27.9921 9.08144 50.5908Z" fill="currentColor"/><path d="M93.9676 39.0409C96.393 38.4038 97.8624 35.9116 97.0079 33.5539C95.2932 28.8227 92.871 24.3692 89.8167 20.348C85.8452 15.1192 80.8826 10.7238 75.2124 7.41289C69.5422 4.10194 63.2754 1.94025 56.7698 1.05124C51.7666 0.367541 46.6976 0.446843 41.7345 1.27873C39.2613 1.69328 37.813 4.19778 38.4501 6.62326C39.0873 9.04874 41.5694 10.4717 44.0505 10.1071C47.8511 9.54855 51.7191 9.52689 55.5402 10.0491C60.8642 10.7766 65.9928 12.5457 70.6331 15.2552C75.2735 17.9648 79.3347 21.5619 82.5849 25.841C84.9175 28.9121 86.7997 32.2913 88.1811 35.8758C89.083 38.2158 91.5421 39.6781 93.9676 39.0409Z" fill="currentFill"/></svg>
-                        <span class="sr-only">{{ $t('Loading...') }}</span>
-                    </div>
-                </div>
-
-                <div v-if="loadingTimer" class="absolute pt-12 flex items-center justify-center w-full h-full z-40 bg-white/80 dark:bg-gray-900/80 rounded-lg">
-                  <div class="text-gray-800 dark:text-gray-100 text-lg font-semibold" 
-                    v-if="!historicalAverage"
-                  >
-                   {{ formatTime(loadingTimer) }} {{ $t('passed...') }} 
-                  </div>
-                  <div class="w-64" v-else>
-                    <ProgressBar
-                      class="absolute max-w-full"
-                      :currentValue="loadingTimer < historicalAverage ? loadingTimer : historicalAverage"
-                      :minValue="0"
-                      :maxValue="historicalAverage"
-                      :showValues="false"
-                      :progressFormatter="(value: number, percentage: number) => `${ formatTime(loadingTimer) } ( ~ ${ Math.floor( (
-                        loadingTimer < historicalAverage ? loadingTimer : historicalAverage
-                      ) / historicalAverage * 100) }% )`"
+                  <div v-for="(img, index) in images" :key="index" class="hidden duration-700 ease-in-out" data-carousel-item>
+                    <img :src="img" class="absolute block w-full h-full object-cover -translate-x-1/2 -translate-y-1/2 top-1/2 left-1/2"
+                      :alt="`Generated image ${index + 1}`"
                     />
                   </div>
-                </div>
-
-                <div v-if="errorMessage" class="absolute flex items-center justify-center w-full h-full z-40 bg-white/80 dark:bg-gray-900/80 rounded-lg">
-                  <div class="pt-20 text-red-500 dark:text-red-400 text-lg font-semibold">
-                    {{ errorMessage }}
+                  <div v-if="images.length === 0" class="w-full h-full flex items-center justify-center border-2 border-dashed border-gray-200 dark:border-gray-600 rounded-xl bg-gray-50 dark:bg-gray-700">
+                    <span class="text-gray-400 dark:text-gray-500 text-sm">{{ $t('Your generated image will appear here') }}</span>
                   </div>
-                </div>
-
-                
-                <div id="gallery" class="relative w-full" data-carousel="static">
-                  <!-- Carousel wrapper -->
-                  <div class="relative h-56 overflow-hidden rounded-lg md:h-[calc(100vh-400px)]">
-                      <!-- Item 1 -->
-                      <div v-for="(img, index) in images" :key="index" class="hidden duration-700 ease-in-out" data-carousel-item>
-                          <img :src="img" class="absolute block max-w-full max-h-full -translate-x-1/2 -translate-y-1/2 top-1/2 left-1/2 object-cover" 
-                            :alt="`Generated image ${index + 1}`"
-                          />
-                      </div>
-                      
-                      <div v-if="images.length === 0" class="flex items-center justify-center w-full h-full">
-                        
-                        <button @click="generateImages" type="button" class="text-white bg-blue-700 hover:bg-blue-800 focus:ring-4 
-                          focus:outline-none focus:ring-blue-300 font-medium rounded-lg text-sm px-5 py-2.5 text-center 
-                          dark:bg-blue-600 dark:hover:bg-blue-700 dark:focus:ring-blue-800 ms-2">{{ $t('Generate images') }}</button>
-
-                      </div>
-                     
-                  </div>
-                  <!-- Slider controls -->
-                  <button type="button" class="absolute top-0 start-0 z-30 flex items-center justify-center h-full px-4 cursor-pointer group focus:outline-none"
-                    @click="slide(-1)"
-                    :disabled="images.length === 0"
-                  >
-                      <span class="inline-flex items-center justify-center w-10 h-10 rounded-full bg-white/30 dark:bg-gray-800/30 group-hover:bg-white/50 dark:group-hover:bg-gray-800/60 group-focus:ring-4 group-focus:ring-white dark:group-focus:ring-gray-800/70 group-focus:outline-none ">
-                          <svg class="w-4 h-4 rtl:rotate-180" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 6 10"
-                            :class="{
-                              'text-gray-800 dark:text-gray-200': images.length > 0,
-                              'text-gray-200 dark:text-gray-800': images.length === 0
-                             }"
-                            >
-                              <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 1 1 5l4 4"/>
-                          </svg>
-                          <span class="sr-only">{{ $t('Previous') }}</span>
-                      </span>
-                  </button>
-                  <button type="button" class="absolute top-0 end-0 z-30 flex items-center justify-center h-full px-4 cursor-pointer group focus:outline-none " 
-                    :disabled="images.length === 0"
-                    @click="slide(1)"
-                  >
-                      <span class="inline-flex items-center justify-center w-10 h-10 rounded-full bg-white/30 dark:bg-gray-800/30 group-hover:bg-white/50 dark:group-hover:bg-gray-800/60 group-focus:ring-4 group-focus:ring-white dark:group-focus:ring-gray-800/70 group-focus:outline-none ">
-                          <svg class="w-4 h-4 rtl:rotate-180" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 6 10"
-                            :class="{
-                              'text-gray-800 dark:text-gray-200': images.length > 0,
-                              'text-gray-200 dark:text-gray-800': images.length === 0
-                             }"
-                          >
-                              <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m1 9 4-4-4-4"/>
-                          </svg>
-                          <span class="sr-only">{{ $t('Next') }}</span>
-                      </span>
-                  </button>
-
-                  
                 </div>
               </div>
             </div>
-            <!-- Modal footer -->
-            <div class="flex items-center p-4 md:p-5 border-t border-gray-200 rounded-b dark:border-gray-600">
-                <button type="button" @click="confirmImage"
-                  :disabled="loading || images.length === 0"
-                  class="text-white bg-blue-700 hover:bg-blue-800 focus:ring-4 focus:outline-none focus:ring-blue-300 font-medium rounded-lg text-sm px-5 py-2.5 text-center 
-                  dark:bg-blue-600 dark:hover:bg-blue-700 dark:focus:ring-blue-800 
-                  disabled:opacity-50 disabled:cursor-not-allowed"
-                >{{ $t('Use image') }}</button>
-                <button type="button" class="py-2.5 px-5 ms-3 text-sm font-medium text-gray-900 focus:outline-none bg-white rounded-lg border border-gray-200 hover:bg-gray-100 hover:text-blue-700 focus:z-10 focus:ring-4 focus:ring-gray-100 dark:focus:ring-gray-700 dark:bg-gray-800 dark:text-gray-400 dark:border-gray-600 dark:hover:text-white dark:hover:bg-gray-700"
-                  @click="() => {stopGeneration = true; emit('close')}"
-                >{{ $t('Cancel') }}</button>
+            <div class="col-start-3 flex items-center justify-center gap-3 pt-3">
+              <button
+                type="button"
+                @click="slide(-1)"
+                :disabled="images.length === 0"
+                class="inline-flex items-center justify-center w-8 h-8 rounded-full border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 disabled:opacity-30 disabled:cursor-not-allowed transition shadow-sm"
+              >
+                <svg class="w-4 h-4 text-gray-700 dark:text-gray-300" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 6 10">
+                  <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 1 1 5l4 4"/>
+                </svg>
+                <span class="sr-only">{{ $t('Previous') }}</span>
+              </button>
+              <button type="button" class="inline-flex items-center justify-center w-8 h-8 rounded-full border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 disabled:opacity-30 disabled:cursor-not-allowed transition shadow-sm"
+                :disabled="loading"
+                @click="slide(1)"
+              >
+                <svg class="w-4 h-4 text-gray-700 dark:text-gray-300" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 6 10">
+                  <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m1 9 4-4-4-4"/>
+                </svg>
+                <span class="sr-only">{{ $t('Next') }}</span>
+              </button>
             </div>
+          </div>
         </div>
+        <!-- Modal footer -->
+        <div class="flex items-center justify-between px-6 py-4 border-t border-gray-200 dark:border-gray-700">
+          <div class="flex items-center gap-2">
+            <Button
+              @click="confirmImage"
+              :disabled="loading || images.length === 0"
+              variant="primary"
+            >{{ $t('Use image') }}</Button>
+            <Button
+              @click="() => { stopGeneration = true; emit('close') }"
+              variant="secondary"
+            >{{ $t('Cancel') }}</Button>
+          </div>
+          <Button
+            @click="generateImages"
+            :disabled="loading"
+            variant="primary"
+          >{{ $t('Generate images') }}</Button>
+        </div>
+
+      </div>
     </div>
   </div>
 
-  
-  
+  <div
+    v-if="zoomedImage"
+    class="fixed inset-0 z-[100] flex items-center justify-center bg-black/90 cursor-zoom-out"
+    @click="closeZoom"
+  >
+    <img
+      :src="zoomedImage"
+      class="max-w-[90vw] max-h-[90vh] rounded-lg object-contain select-none"
+    />
+    <button
+      class="absolute top-4 right-4 text-white/70 hover:text-white w-9 h-9 flex items-center justify-center rounded-full bg-white/10 hover:bg-white/20 transition"
+    >
+      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 14 14">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m1 1 6 6m0 0 6 6M7 7l6-6M7 7l-6 6"/>
+      </svg>
+    </button>
+  </div>
 
 </template>
 
 <script setup lang="ts">
 
-import { ref, onMounted, nextTick, Ref, watch, onUnmounted } from 'vue'
+import { ref, onMounted, nextTick, Ref, onUnmounted } from 'vue'
 import { Carousel } from 'flowbite';
 import { callAdminForthApi } from '@/utils';
 import { useI18n } from 'vue-i18n';
 import adminforth from '@/adminforth';
-import { ProgressBar } from '@/afcl';
+import { ProgressBar, Button } from '@/afcl';
 import * as Handlebars from 'handlebars';
 import { IconCloseOutline } from '@iconify-prerendered/vue-flowbite';
 import { Tooltip, Skeleton } from '@/afcl'
@@ -468,29 +468,25 @@ async function generateImages() {
   loading.value = false;
 }
 
-import mediumZoom from 'medium-zoom'
-
 const zoomedImage = ref(null)
-const zoomedImg = ref(null)
 
 function zoomImage(img) {
   zoomedImage.value = img
+}
+
+function zoomCurrentImage() {
+  if (images.value.length === 0) return;
+  const index = caurosel.value?.getActiveItem()?.position || 0;
+  zoomImage(images.value[index]);
 }
 
 function closeZoom() {
   zoomedImage.value = null
 }
 
-watch(zoomedImage, async (val) => {
-  await nextTick()
-  if (val && zoomedImg.value) {
-    mediumZoom(zoomedImg.value, {
-      margin: 24,
-      background: 'rgba(0, 0, 0, 0.9)',
-      scrollOffset: 150
-    }).show()
-  }
-})
+function onZoomKeyDown(e: KeyboardEvent) {
+  if (e.key === 'Escape') closeZoom();
+}
 
 async function handleAddFile(event, clipboardFile = null) {
   if (clipboardFile) {
@@ -611,9 +607,11 @@ function renameFile(file, newName) {
 
 onMounted(() => {
   document.addEventListener('paste', uploadImageOnPaste);
+  document.addEventListener('keydown', onZoomKeyDown);
 });
 
 onUnmounted(() => {
   document.removeEventListener('paste', uploadImageOnPaste);
+  document.removeEventListener('keydown', onZoomKeyDown);
 });
 </script>
