@@ -7,8 +7,13 @@
 
       <button v-if="meta.generateImages" 
         type="button" @click="showImageGen = true" 
-        class="text-white bg-gradient-to-r from-purple-500 via-purple-600 to-purple-700 hover:bg-gradient-to-br focus:ring-4 focus:outline-none focus:ring-purple-300 dark:focus:ring-purple-800 
-          font-medium rounded-lg text-sm px-2.5 py-2.5 text-center me-2 mb-2 absolute right-0 top-2">
+        class="
+          text-white bg-lightPrimary font-medium text-center rounded-default text-sm px-2.5 py-2.5  me-2 
+          absolute right-0 top-2
+          focus:ring-4 focus:outline-none focus:ring-purple-300 
+          hover:bg-lightPrimary/80
+          dark:focus:ring-purple-800 dark:bg-darkPrimary dark:hover:bg-darkPrimary/80 dark:focus:ring-purple-800
+          ">
           <IconMagic class="w-5 h-5"/>
       </button>
 

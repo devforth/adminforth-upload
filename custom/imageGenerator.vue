@@ -207,6 +207,7 @@ import { useI18n } from 'vue-i18n';
 import adminforth from '@/adminforth';
 import { ProgressBar, Button } from '@/afcl';
 import * as Handlebars from 'handlebars';
+import { ProgressBar } from '@/afcl';
 import { IconCloseOutline } from '@iconify-prerendered/vue-flowbite';
 import { Tooltip, Skeleton, Spinner } from '@/afcl'
 import { useRoute } from 'vue-router';
@@ -241,6 +242,7 @@ onMounted(async () => {
   }
   // iterate over all variables in template and replace them with their values from props.record[field]. 
   // if field is not present in props.record[field] then replace it with empty string and drop warning
+  const { default: Handlebars } = await import('handlebars');
   const tpl = Handlebars.compile(template);
   const compiledTemplate = tpl(props.record);
   prompt.value = compiledTemplate;
