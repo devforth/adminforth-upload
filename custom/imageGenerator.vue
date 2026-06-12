@@ -206,8 +206,6 @@ import { callAdminForthApi } from '@/utils';
 import { useI18n } from 'vue-i18n';
 import adminforth from '@/adminforth';
 import { ProgressBar, Button } from '@/afcl';
-import * as Handlebars from 'handlebars';
-import { ProgressBar } from '@/afcl';
 import { IconCloseOutline } from '@iconify-prerendered/vue-flowbite';
 import { Tooltip, Skeleton, Spinner } from '@/afcl'
 import { useRoute } from 'vue-router';
