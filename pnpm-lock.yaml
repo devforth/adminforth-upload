@@ -19,8 +19,8 @@ importers:
         specifier: ^22.10.7
         version: 22.19.13
       adminforth:
-        specifier: 3.1.1
-        version: 3.1.1(@types/node@22.19.13)
+        specifier: 3.1.0
+        version: 3.1.0(@types/node@22.19.13)
       semantic-release:
         specifier: ^24.2.1
         version: 24.2.9(typescript@5.9.3)
@@ -762,8 +762,8 @@ packages:
     resolution: {integrity: sha512-PYAthTa2m2VKxuvSD3DPC/Gy+U+sOA1LAuT8mkmRuvw+NACSaeXEQ+NHcVF7rONl6qcaxV3Uuemwawk+7+SJLw==}
     engines: {node: '>= 0.6'}
 
-  adminforth@3.1.1:
-    resolution: {integrity: sha512-+dCQipQzrawY2oDT5DpV5Y04Us1bo/9u4pKVPWJ5y9on2w1gdMW7ds7WLcgkXF4MdxJARdHPlb1JTCQJvzJP4A==}
+  adminforth@3.1.0:
+    resolution: {integrity: sha512-eUCXiilsRctENQ834KexTDv0r8/rHRegYQn4KLbz+UtriWRrKFz4gG+UyEBNB2T/DBlD23ww7eoMs/7vn+lAfw==}
     hasBin: true
     peerDependencies:
       '@adminforth/connector-clickhouse': ^1.0.2
@@ -3884,7 +3884,7 @@ snapshots:
       mime-types: 2.1.35
       negotiator: 0.6.3
 
-  adminforth@3.1.1(@types/node@22.19.13):
+  adminforth@3.1.0(@types/node@22.19.13):
     dependencies:
       '@babel/parser': 7.29.0
       '@faker-js/faker': 9.9.0
