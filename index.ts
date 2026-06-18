@@ -567,6 +567,23 @@ export default class UploadPlugin extends AdminForthPlugin {
         return { error: 'failed to generate preview URL' };
       },
     });
+
+    server.endpoint({
+      method: 'POST',
+      path: `/plugin/${this.pluginInstanceId}/mark-file-for-deletion`,
+      handler: async ({ body, adminUser }) => {
+        const { filePath } = body;
+        if (!filePath) {
+          return { error: 'Missing filePath' };
+        }
+        try {
+          await this.markKeyForDeletion(filePath);
+          return { ok: true };
+        } catch (e) {
+          return { error: 'Failed to mark file for deletion' };
+        }
+      },
+    });
   }
   
   /*

@@ -254,6 +254,14 @@ function humanifySize(size) {
   return `${size.toFixed(1)} ${units[i]}`
 }
 
+async function markKeyForDeletion(filePath:string) {
+  const res = await callAdminForthApi({
+    path: `/plugin/${props.meta.pluginInstanceId}/mark-file-for-deletion`,
+    method: 'POST',
+    body: { filePath },
+  });
+}
+
 
 const onFileChange = async (e) => {
   // if empty then return
@@ -370,6 +378,7 @@ const onFileChange = async (e) => {
       progress.value = 0;
       return;
     }
+    await markKeyForDeletion(filePath);
     uploaded.value = true;
     emit('update:value', filePath);
   } catch (error) {
