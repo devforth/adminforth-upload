@@ -143,7 +143,7 @@
                 <span class="sr-only">{{ $t('Previous') }}</span>
               </button>
               <button type="button" class="inline-flex items-center justify-center w-8 h-8 rounded-full border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 disabled:opacity-30 disabled:cursor-not-allowed transition shadow-sm"
-                :disabled="loading"
+                :disabled="loading || images.length === 0"
                 @click="slide(1)"
               >
                 <svg class="w-4 h-4 text-gray-700 dark:text-gray-300" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 6 10">
