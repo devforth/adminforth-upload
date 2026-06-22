@@ -494,19 +494,6 @@ export default class UploadPlugin extends AdminForthPlugin {
         return { ok: true, job };
       }
     });
-
-    server.endpoint({
-      method: 'GET',
-      path: `/plugin/${this.pluginInstanceId}/cors-proxy`,
-      handler: async ({ query, response  }) => {
-        const { url } = query;
-        const resp = await fetch(url);
-        response.setHeader('Content-Type', resp.headers.get('Content-Type'));
-        //@ts-ignore
-        Readable.fromWeb( resp.body ).pipe( response.blobStream() );
-        return null
-      }
-    });
     
     server.endpoint({
       method: 'POST',

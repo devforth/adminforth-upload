@@ -302,10 +302,6 @@ async function confirmImage() {
     }
     const byteArray = new Uint8Array(byteNumbers);
     imgBlob = new Blob([byteArray], { type: mimeType });
-  } else {
-    imgBlob = await fetch(
-      `${import.meta.env.VITE_ADMINFORTH_PUBLIC_PATH || ''}/adminapi/v1/plugin/${props.meta.pluginInstanceId}/cors-proxy?url=${encodeURIComponent(img)}`
-    ).then(res => { return res.blob() });
   }
 
   emit('uploadImage', imgBlob);
