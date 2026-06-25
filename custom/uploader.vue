@@ -18,7 +18,7 @@
       </button>
 
       <label :for="inputId" 
-        class="af-uploader flex flex-col px-3 items-center justify-center w-full h-64 border-2  border-dashed rounded-lg cursor-pointer  dark:hover:!bg-darkDropzoneBackgroundHover dark:hover:bg-gray-800 hover:!bg-lightDropzoneBackgroundHover hover:bg-gray-100  dark:hover:!border-darkDropzoneBorderHover dark:hover:border-gray-500 dark:hover:!bg-darkDropzoneBackgroundHover dark:hover:bg-gray-600 hover:!border-lightDropzoneBorderHover"
+        class="af-uploader flex flex-col px-3 items-center justify-center w-full h-64 border-2  border-dashed rounded-default cursor-pointer  dark:hover:!bg-darkDropzoneBackgroundHover dark:hover:bg-gray-800 hover:!bg-lightDropzoneBackgroundHover hover:bg-gray-100  dark:hover:!border-darkDropzoneBorderHover dark:hover:border-gray-500 dark:hover:!bg-darkDropzoneBackgroundHover dark:hover:bg-gray-600 hover:!border-lightDropzoneBorderHover"
         @dragover.prevent="() => dragging = true"
         @dragleave.prevent="() => dragging = false"
         @drop.prevent="onFileChange"  
