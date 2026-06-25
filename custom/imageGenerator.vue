@@ -6,8 +6,8 @@
       <!-- Modal content -->
       <div class="relative bg-white rounded-xl shadow-2xl dark:bg-gray-800">
         <!-- Header -->
-        <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200 dark:border-gray-700">
-          <h3 class="text-lg font-semibold text-gray-900 dark:text-white">
+        <div class="flex items-center justify-between px-4 py-3 sm:px-6 sm:py-4 border-b border-gray-200 dark:border-gray-700">
+          <h3 class="text-base sm:text-lg font-semibold text-gray-900 dark:text-white">
             {{ $t('Generate image with AI') }}
           </h3>
           <button type="button" 
@@ -20,7 +20,7 @@
           </button>
         </div>
         <!-- Modal body -->
-        <div class="px-6 py-5 space-y-4">
+        <div class="px-4 py-4 sm:px-6 sm:py-5 space-y-4">
           <!-- PROMPT TEXTAREA -->
           <!-- Textarea -->
           <textarea
@@ -63,10 +63,12 @@
             <Skeleton v-else type="image" class="w-14 h-14" />
           </div>
 
+          <div class="grid grid-cols-[1fr_32px_1fr] sm:grid-cols-[1fr_52px_1fr]">
+            <span class="pb-2 text-xs sm:text-sm font-medium text-gray-500 dark:text-gray-400">{{ $t('Original image') }}</span>
           <div class=" image-container grid grid-cols-[1fr_52px_1fr]">
             <span class="pb-2 text-sm font-medium text-gray-500 dark:text-gray-400">{{ $t('Original image') }}</span>
             <div></div>
-            <span class="pb-2 text-sm font-medium text-gray-500 dark:text-gray-400">{{ $t('Generated image') }}</span>
+            <span class="pb-2 text-xs sm:text-sm font-medium text-gray-500 dark:text-gray-400">{{ $t('Generated image') }}</span>
             <div
               class="rounded-xl overflow-hidden bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 aspect-[4/3] flex items-center justify-center"
               :class="requestAttachmentFilesUrls.length ? 'cursor-zoom-in' : ''"
@@ -77,7 +79,7 @@
                 :src="requestAttachmentFilesUrls[0]"
                 class="w-full h-full object-cover"
               />
-              <span v-else class="text-gray-400 dark:text-gray-500 text-sm">{{ $t('No image') }}</span>
+              <span v-else class="text-gray-400 dark:text-gray-500 text-xs sm:text-sm px-2 text-center">{{ $t('No image') }}</span>
             </div>
 
             <div class="flex items-center justify-center">
@@ -131,7 +133,7 @@
                     />
                   </div>
                   <div v-if="images.length === 0" class="w-full h-full flex items-center justify-center border-2 border-dashed border-gray-200 dark:border-gray-600 rounded-xl bg-gray-50 dark:bg-gray-700">
-                    <span v-if="!loadingTimer" class="text-gray-400 dark:text-gray-500 text-sm">{{ $t('Your generated image will appear here') }}</span>
+                    <span v-if="!loadingTimer" class="text-gray-400 dark:text-gray-500 text-xs sm:text-sm px-2 text-center">{{ $t('Your generated image will appear here') }}</span>
                   </div>
                 </div>
               </div>
@@ -161,22 +163,25 @@
           </div>
         </div>
         <!-- Modal footer -->
-        <div class="flex items-center justify-between px-6 py-4 border-t border-gray-200 dark:border-gray-700">
+        <div class="flex flex-col-reverse gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-2 px-4 py-3 sm:px-6 sm:py-4 border-t border-gray-200 dark:border-gray-700">
           <div class="flex items-center gap-2">
             <Button
               @click="confirmImage"
               :disabled="loading || images.length === 0"
               variant="primary"
+              class="flex-1 sm:flex-none"
             >{{ $t('Use image') }}</Button>
             <Button
               @click="() => { stopGeneration = true; emit('close') }"
               variant="secondary"
+              class="flex-1 sm:flex-none"
             >{{ $t('Cancel') }}</Button>
           </div>
           <Button
             @click="generateImages"
             :disabled="loading"
             variant="primary"
+            class="w-full sm:w-auto"
           >{{ $t('Generate images') }}</Button>
         </div>
 
