@@ -65,6 +65,8 @@
 
           <div class="grid grid-cols-[1fr_32px_1fr] sm:grid-cols-[1fr_52px_1fr]">
             <span class="pb-2 text-xs sm:text-sm font-medium text-gray-500 dark:text-gray-400">{{ $t('Original image') }}</span>
+          <div class=" image-container grid grid-cols-[1fr_52px_1fr]">
+            <span class="pb-2 text-sm font-medium text-gray-500 dark:text-gray-400">{{ $t('Original image') }}</span>
             <div></div>
             <span class="pb-2 text-xs sm:text-sm font-medium text-gray-500 dark:text-gray-400">{{ $t('Generated image') }}</span>
             <div
@@ -88,22 +90,28 @@
 
             <div class="relative aspect-[4/3]">
 
+              <div
+                v-if="loading && images.length > 0"
+                class="absolute inset-0 z-40 rounded-default bg-black/50 backdrop-blur-sm"
+              />
+
               <div 
                 v-if="loading"
-                class="spinner absolute flex items-center justify-center inset-0 z-40 rounded-xl">
+                class="spinner absolute flex items-center justify-center inset-0 z-50 rounded-default">
                 <Spinner class="w-8 h-8" />
               </div>
               <div v-if="loadingTimer" class=" spinner-description absolute inset-0 z-40 flex items-center justify-center">
                 <div class="text-gray-800 dark:text-gray-100 text-base font-semibold mt-20" v-if="!historicalAverage">
                   {{ formatTime(loadingTimer) }} {{ $t('passed...') }}
                 </div>
-                <div class="w-48" v-else>
+                <div class="w-48 mt-20" v-else>
                   <ProgressBar
                     class="max-w-full"
                     :currentValue="loadingTimer < historicalAverage ? loadingTimer : historicalAverage"
                     :minValue="0"
                     :maxValue="historicalAverage"
                     :showValues="false"
+                    textClass="text-white"
                     :progressFormatter="(_value: number, _percentage: number) => `${ formatTime(loadingTimer) } ( ~ ${ Math.floor( (loadingTimer < historicalAverage ? loadingTimer : historicalAverage) / historicalAverage * 100) }% )`"
                   />
                 </div>
