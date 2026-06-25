@@ -19,8 +19,8 @@ importers:
         specifier: ^22.10.7
         version: 22.19.13
       adminforth:
-        specifier: ^3.1.0
-        version: 3.1.0(@types/node@22.19.13)
+        specifier: ^3.6.2
+        version: 3.6.2(@adminforth/connector-qdrant@1.0.4)(@types/node@22.19.13)
       semantic-release:
         specifier: ^24.2.1
         version: 24.2.9(typescript@5.9.3)
@@ -32,6 +32,11 @@ importers:
         version: 5.9.3
 
 packages:
+
+  '@adminforth/connector-qdrant@1.0.4':
+    resolution: {integrity: sha512-ThblJRLSKLPHBOXNeJ8wCj+3sxOgFa0bEj1JX3s3Kl+XpZmAHChECgXLErS+IyqaAobjjmWck9jIO2dP917gGw==}
+    peerDependencies:
+      adminforth: ^3.2.6
 
   '@aws-crypto/crc32@5.2.0':
     resolution: {integrity: sha512-nLbCWqQNgUiwwtFsen1AdzAtvuLRsQS8rYgMuxCrdKf9kOssamGLuPwyTY9wyYblNr9+1XM8v6zoDTPPSIeANg==}
@@ -435,6 +440,16 @@ packages:
     resolution: {integrity: sha512-h104Kh26rR8tm+a3Qkc5S4VLYint3FE48as7+/5oCEcKR2idC/pF1G6AhIXKI+eHPJa/3J9i5z0Al47IeGHPkA==}
     engines: {node: '>=12'}
 
+  '@qdrant/js-client-rest@1.18.0':
+    resolution: {integrity: sha512-/0dqX5uV9chC1DnYSnU4gNMrDqse/pt6hHg3Rqqpl5isH7xl1xSNvffjzBoxycDD79luWn7Ho6Rh/61sOs5DNw==}
+    engines: {node: '>=18.17.0', pnpm: '>=8'}
+    peerDependencies:
+      typescript: '>=4.7'
+
+  '@qdrant/openapi-typescript-fetch@1.2.6':
+    resolution: {integrity: sha512-oQG/FejNpItrxRHoyctYvT3rwGZOnK4jr3JdppO/c78ktDvkWiPXPHNsrDf33K9sZdRb6PR7gi4noIapu5q4HA==}
+    engines: {node: '>=18.0.0', pnpm: '>=8'}
+
   '@scalar/client-side-rendering@0.1.2':
     resolution: {integrity: sha512-gX2QIc+lpErO9RWkJmt02sBZoCOjyZ7EiLLEyGj7x9UKkk7E4zj6Wbk1eUPo6i3oIwhtZ+Vybj/xzexCK2bxwA==}
     engines: {node: '>=22'}
@@ -762,15 +777,16 @@ packages:
     resolution: {integrity: sha512-PYAthTa2m2VKxuvSD3DPC/Gy+U+sOA1LAuT8mkmRuvw+NACSaeXEQ+NHcVF7rONl6qcaxV3Uuemwawk+7+SJLw==}
     engines: {node: '>= 0.6'}
 
-  adminforth@3.1.0:
-    resolution: {integrity: sha512-eUCXiilsRctENQ834KexTDv0r8/rHRegYQn4KLbz+UtriWRrKFz4gG+UyEBNB2T/DBlD23ww7eoMs/7vn+lAfw==}
+  adminforth@3.6.2:
+    resolution: {integrity: sha512-/HF3s0+6bkxyAqrkmkGxEn+Zvrrv8q3Sr6q55oVmHlcGI3Tamo9z10XvRRsS+KrBVUzt53BxFRmA2Z2EKjRiTg==}
     hasBin: true
     peerDependencies:
-      '@adminforth/connector-clickhouse': ^1.0.2
-      '@adminforth/connector-mongo': ^1.0.1
-      '@adminforth/connector-mysql': ^1.0.1
-      '@adminforth/connector-postgres': ^1.0.1
-      '@adminforth/connector-sqlite': ^1.0.1
+      '@adminforth/connector-clickhouse': ^1.0.4
+      '@adminforth/connector-mongo': ^1.0.3
+      '@adminforth/connector-mysql': ^1.0.3
+      '@adminforth/connector-postgres': ^1.0.4
+      '@adminforth/connector-qdrant': ^1.0.4
+      '@adminforth/connector-sqlite': ^1.0.3
     peerDependenciesMeta:
       '@adminforth/connector-clickhouse':
         optional: true
@@ -1060,6 +1076,9 @@ packages:
 
   dayjs@1.11.19:
     resolution: {integrity: sha512-t5EcLVS6QPBNqM2z8fakk/NKel+Xzshgt8FFKAn+qwlD1pzZWxh0nVCrvFK7ZDb6XucZeF9z8C7CBWTRIVApAw==}
+
+  dayjs@1.11.21:
+    resolution: {integrity: sha512-98IT+HOahAisibz/yjKbzuOBwYcjJ7BCLPzARyHiyEBmRz4fatF+KPJszEHXsGYjUG234aH/cOjW1wwTbKUZlA==}
 
   debounce@1.2.1:
     resolution: {integrity: sha512-XRRe6Glud4rd/ZGQfiV1ruXSfbvfJedlV9Y6zOlP+2K04vBYiJEte6stfFkCP03aMnY5tsipamumUjL14fofug==}
@@ -2532,6 +2551,10 @@ packages:
   undici-types@6.21.0:
     resolution: {integrity: sha512-iwDZqg0QAGrg9Rav5H4n0M64c3mkR59cJ6wQp+7C4nI0gsmExaedaYLNO44eT4AtBBwjbTiGPMlt2Md0T9H9JQ==}
 
+  undici@6.27.0:
+    resolution: {integrity: sha512-YmfV3YnEDzXRC5lZ2jWtWWHKGUm1zIt8AhesR1tens+HTNv+YZlN/dp6G727LOvMJ8xjP9Be7Y2Sdr96LDm+pg==}
+    engines: {node: '>=18.17'}
+
   unicode-emoji-modifier-base@1.0.0:
     resolution: {integrity: sha512-yLSH4py7oFH3oG/9K+XWrz1pSi3dfUrWEnInbxMfArOfc1+33BlGPQtLsOYwvdMy11AwUBetYuaRxSPqgkq+8g==}
     engines: {node: '>=4'}
@@ -2693,6 +2716,14 @@ packages:
     resolution: {integrity: sha512-V50KMwwzqJV0NpZIZFwfOD5/lyny3WlSzRiXgA0G7VUnRlqttta1L6UQIHzd6EuBY/cHGfwTIck7w1yH6Q5zUw==}
 
 snapshots:
+
+  '@adminforth/connector-qdrant@1.0.4(adminforth@3.6.2)(typescript@5.9.3)':
+    dependencies:
+      '@qdrant/js-client-rest': 1.18.0(typescript@5.9.3)
+      adminforth: 3.6.2(@adminforth/connector-qdrant@1.0.4)(@types/node@22.19.13)
+      dayjs: 1.11.21
+    transitivePeerDependencies:
+      - typescript
 
   '@aws-crypto/crc32@5.2.0':
     dependencies:
@@ -3385,6 +3416,14 @@ snapshots:
       '@pnpm/network.ca-file': 1.0.2
       config-chain: 1.1.13
 
+  '@qdrant/js-client-rest@1.18.0(typescript@5.9.3)':
+    dependencies:
+      '@qdrant/openapi-typescript-fetch': 1.2.6
+      typescript: 5.9.3
+      undici: 6.27.0
+
+  '@qdrant/openapi-typescript-fetch@1.2.6': {}
+
   '@scalar/client-side-rendering@0.1.2':
     dependencies:
       '@scalar/types': 0.9.1
@@ -3884,8 +3923,9 @@ snapshots:
       mime-types: 2.1.35
       negotiator: 0.6.3
 
-  adminforth@3.1.0(@types/node@22.19.13):
+  adminforth@3.6.2(@adminforth/connector-qdrant@1.0.4)(@types/node@22.19.13):
     dependencies:
+      '@adminforth/connector-qdrant': 1.0.4(adminforth@3.6.2)(typescript@5.9.3)
       '@babel/parser': 7.29.0
       '@faker-js/faker': 9.9.0
       '@inquirer/prompts': 7.10.1(@types/node@22.19.13)
@@ -4193,6 +4233,8 @@ snapshots:
   dateformat@4.6.3: {}
 
   dayjs@1.11.19: {}
+
+  dayjs@1.11.21: {}
 
   debounce@1.2.1: {}
 
@@ -5667,6 +5709,8 @@ snapshots:
     optional: true
 
   undici-types@6.21.0: {}
+
+  undici@6.27.0: {}
 
   unicode-emoji-modifier-base@1.0.0: {}
 
