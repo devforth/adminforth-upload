@@ -63,10 +63,8 @@
             <Skeleton v-else type="image" class="w-14 h-14" />
           </div>
 
-          <div class="grid grid-cols-[1fr_32px_1fr] sm:grid-cols-[1fr_52px_1fr]">
+          <div class="image-container grid grid-cols-[1fr_32px_1fr] sm:grid-cols-[1fr_52px_1fr]">
             <span class="pb-2 text-xs sm:text-sm font-medium text-gray-500 dark:text-gray-400">{{ $t('Original image') }}</span>
-          <div class=" image-container grid grid-cols-[1fr_52px_1fr]">
-            <span class="pb-2 text-sm font-medium text-gray-500 dark:text-gray-400">{{ $t('Original image') }}</span>
             <div></div>
             <span class="pb-2 text-xs sm:text-sm font-medium text-gray-500 dark:text-gray-400">{{ $t('Generated image') }}</span>
             <div
@@ -161,7 +159,6 @@
               </button>
             </div>
           </div>
-        </div>
         <!-- Modal footer -->
         <div class="flex flex-col-reverse gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-2 px-4 py-3 sm:px-6 sm:py-4 border-t border-gray-200 dark:border-gray-700">
           <div class="flex items-center gap-2">
@@ -187,6 +184,7 @@
 
       </div>
     </div>
+  </div>
   </div>
 
   <div
