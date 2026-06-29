@@ -428,6 +428,10 @@ export default class UploadPlugin extends AdminForthPlugin {
       handler: async ({ body }) => {
         const { originalFilename, contentType, size, originalExtension, recordPk } = body;
 
+        if (!originalFilename || !originalExtension || !contentType) {
+          return { error: 'originalFilename, originalExtension and contentType are required' };
+        }
+
         return this.getFileUploadUrl( originalFilename, contentType, size, originalExtension, recordPk );
         
       }
