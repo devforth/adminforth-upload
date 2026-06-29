@@ -19,8 +19,8 @@ importers:
         specifier: ^22.10.7
         version: 22.19.13
       adminforth:
-        specifier: ^3.6.2
-        version: 3.6.2(@adminforth/connector-qdrant@1.0.4)(@types/node@22.19.13)
+        specifier: ^3.6.21
+        version: 3.6.21(@adminforth/connector-qdrant@1.0.4)(@types/node@22.19.13)
       semantic-release:
         specifier: ^24.2.1
         version: 24.2.9(typescript@5.9.3)
@@ -777,8 +777,8 @@ packages:
     resolution: {integrity: sha512-PYAthTa2m2VKxuvSD3DPC/Gy+U+sOA1LAuT8mkmRuvw+NACSaeXEQ+NHcVF7rONl6qcaxV3Uuemwawk+7+SJLw==}
     engines: {node: '>= 0.6'}
 
-  adminforth@3.6.2:
-    resolution: {integrity: sha512-/HF3s0+6bkxyAqrkmkGxEn+Zvrrv8q3Sr6q55oVmHlcGI3Tamo9z10XvRRsS+KrBVUzt53BxFRmA2Z2EKjRiTg==}
+  adminforth@3.6.21:
+    resolution: {integrity: sha512-RBZ7XLUcxGUOxB8WsV2ib0Vv+oTEXz6oAhziRoviVRxNE/ew+ZhVNV35xaz4Yzy8a4eWCGbjqwAEtFtYqrYeKQ==}
     hasBin: true
     peerDependencies:
       '@adminforth/connector-clickhouse': ^1.0.4
@@ -795,6 +795,8 @@ packages:
       '@adminforth/connector-mysql':
         optional: true
       '@adminforth/connector-postgres':
+        optional: true
+      '@adminforth/connector-qdrant':
         optional: true
       '@adminforth/connector-sqlite':
         optional: true
@@ -1073,9 +1075,6 @@ packages:
 
   dateformat@4.6.3:
     resolution: {integrity: sha512-2P0p0pFGzHS5EMnhdxQi7aJN+iMheud0UhG4dlE1DLAlvL8JHjJJTX/CSm4JXwV0Ka5nGk3zC5mcb5bUQUxxMA==}
-
-  dayjs@1.11.19:
-    resolution: {integrity: sha512-t5EcLVS6QPBNqM2z8fakk/NKel+Xzshgt8FFKAn+qwlD1pzZWxh0nVCrvFK7ZDb6XucZeF9z8C7CBWTRIVApAw==}
 
   dayjs@1.11.21:
     resolution: {integrity: sha512-98IT+HOahAisibz/yjKbzuOBwYcjJ7BCLPzARyHiyEBmRz4fatF+KPJszEHXsGYjUG234aH/cOjW1wwTbKUZlA==}
@@ -2717,13 +2716,14 @@ packages:
 
 snapshots:
 
-  '@adminforth/connector-qdrant@1.0.4(adminforth@3.6.2)(typescript@5.9.3)':
+  '@adminforth/connector-qdrant@1.0.4(adminforth@3.6.21)(typescript@5.9.3)':
     dependencies:
       '@qdrant/js-client-rest': 1.18.0(typescript@5.9.3)
-      adminforth: 3.6.2(@adminforth/connector-qdrant@1.0.4)(@types/node@22.19.13)
+      adminforth: 3.6.21(@adminforth/connector-qdrant@1.0.4)(@types/node@22.19.13)
       dayjs: 1.11.21
     transitivePeerDependencies:
       - typescript
+    optional: true
 
   '@aws-crypto/crc32@5.2.0':
     dependencies:
@@ -3421,8 +3421,10 @@ snapshots:
       '@qdrant/openapi-typescript-fetch': 1.2.6
       typescript: 5.9.3
       undici: 6.27.0
+    optional: true
 
-  '@qdrant/openapi-typescript-fetch@1.2.6': {}
+  '@qdrant/openapi-typescript-fetch@1.2.6':
+    optional: true
 
   '@scalar/client-side-rendering@0.1.2':
     dependencies:
@@ -3923,9 +3925,8 @@ snapshots:
       mime-types: 2.1.35
       negotiator: 0.6.3
 
-  adminforth@3.6.2(@adminforth/connector-qdrant@1.0.4)(@types/node@22.19.13):
+  adminforth@3.6.21(@adminforth/connector-qdrant@1.0.4)(@types/node@22.19.13):
     dependencies:
-      '@adminforth/connector-qdrant': 1.0.4(adminforth@3.6.2)(typescript@5.9.3)
       '@babel/parser': 7.29.0
       '@faker-js/faker': 9.9.0
       '@inquirer/prompts': 7.10.1(@types/node@22.19.13)
@@ -3937,7 +3938,7 @@ snapshots:
       bson: 7.2.0
       chalk: 5.6.2
       connection-string: 4.4.0
-      dayjs: 1.11.19
+      dayjs: 1.11.21
       dotenv: 16.6.1
       esm: 3.2.25
       execa: 9.6.1
@@ -3961,6 +3962,8 @@ snapshots:
       ws: 8.19.0
       yaml: 2.8.3
       zod: 4.3.6
+    optionalDependencies:
+      '@adminforth/connector-qdrant': 1.0.4(adminforth@3.6.21)(typescript@5.9.3)
     transitivePeerDependencies:
       - '@types/node'
       - bufferutil
@@ -4231,8 +4234,6 @@ snapshots:
   data-uri-to-buffer@4.0.1: {}
 
   dateformat@4.6.3: {}
-
-  dayjs@1.11.19: {}
 
   dayjs@1.11.21: {}
 
@@ -4778,7 +4779,7 @@ snapshots:
 
   launder@1.7.1:
     dependencies:
-      dayjs: 1.11.19
+      dayjs: 1.11.21
 
   lines-and-columns@1.2.4: {}
 
@@ -5710,7 +5711,8 @@ snapshots:
 
   undici-types@6.21.0: {}
 
-  undici@6.27.0: {}
+  undici@6.27.0:
+    optional: true
 
   unicode-emoji-modifier-base@1.0.0: {}
 
