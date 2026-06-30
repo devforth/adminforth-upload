@@ -7,7 +7,7 @@ import {
   CommitUrlToNewRecordParams,
   GetUploadUrlParams,
 } from './types.js';
-import { AdminForthPlugin, AdminForthResource, Filters, IAdminForth, IHttpServer, suggestIfTypo, RateLimiter } from "adminforth";
+import { AdminForthPlugin, parseBody, AdminForthResource, Filters, IAdminForth, IHttpServer, suggestIfTypo, RateLimiter } from "adminforth";
 import { Readable } from "stream";
 import { randomUUID } from "crypto";
 import { interpretResource, ActionCheckSource } from 'adminforth';
@@ -436,22 +436,6 @@ export default class UploadPlugin extends AdminForthPlugin {
   }
   
 
-  private parseBody<T>(
-    schema: z.ZodType<T>,
-    body: unknown,
-    response: { setStatus: (code: number, message: string) => void },
-  ): { ok: true; data: T } | { ok: false; error: { error: string; details: unknown } } {
-    const parsed = schema.safeParse(body ?? {});
-    if (!parsed.success) {
-      response.setStatus(400, '');
-      return {
-        ok: false,
-        error: { error: 'Request body validation failed', details: parsed.error.issues },
-      };
-    }
-    return { ok: true, data: parsed.data };
-  }
-
   setupEndpoints(server: IHttpServer) {
     server.endpoint({
       method: 'GET',
@@ -469,7 +453,7 @@ export default class UploadPlugin extends AdminForthPlugin {
       method: 'POST',
       path: `/plugin/${this.pluginInstanceId}/get_file_upload_url`,
       handler: async ({ body, response }) => {
-        const parsed = this.parseBody(getFileUploadUrlBodySchema, body, response);
+        const parsed = parseBody(getFileUploadUrlBodySchema, body, response);
         if ('error' in parsed) return parsed.error;
         const data = parsed.data;
         const { originalFilename, contentType, size, originalExtension, recordPk } = data;
@@ -507,7 +491,7 @@ export default class UploadPlugin extends AdminForthPlugin {
       method: 'POST',
       path: `/plugin/${this.pluginInstanceId}/create-image-generation-job`,
       handler: async ({ body, adminUser, headers, response }) => {
-        const parsed = this.parseBody(createImageGenerationJobBodySchema, body, response);
+        const parsed = parseBody(createImageGenerationJobBodySchema, body, response);
         if ('error' in parsed) return parsed.error;
         const data = parsed.data;
         const { prompt, recordId, requestAttachmentFiles } = data;
@@ -526,7 +510,7 @@ export default class UploadPlugin extends AdminForthPlugin {
       method: 'POST',
       path: `/plugin/${this.pluginInstanceId}/get-image-generation-job-status`,
       handler: async ({ body, adminUser, headers, response }) => {
-        const parsed = this.parseBody(jobStatusBodySchema, body, response);
+        const parsed = parseBody(jobStatusBodySchema, body, response);
         if ('error' in parsed) return parsed.error;
         const data = parsed.data;
         const jobId = data.jobId;
@@ -555,7 +539,7 @@ export default class UploadPlugin extends AdminForthPlugin {
       method: 'POST',
       path: `/plugin/${this.pluginInstanceId}/get_attachment_files`,
       handler: async ({ body, adminUser, response }) => {
-        const parsed = this.parseBody(recordIdBodySchema, body, response);
+        const parsed = parseBody(recordIdBodySchema, body, response);
         if ('error' in parsed) return parsed.error;
         const data = parsed.data;
         const { recordId } = data;
@@ -582,7 +566,7 @@ export default class UploadPlugin extends AdminForthPlugin {
       method: 'POST',
       path: `/plugin/${this.pluginInstanceId}/get-file-download-url`,
       handler: async ({ body, adminUser, response }) => {
-        const parsed = this.parseBody(filePathBodySchema, body, response);
+        const parsed = parseBody(filePathBodySchema, body, response);
         if ('error' in parsed) return parsed.error;
         const data = parsed.data;
         const { filePath } = data;
@@ -605,7 +589,7 @@ export default class UploadPlugin extends AdminForthPlugin {
       method: 'POST',
       path: `/plugin/${this.pluginInstanceId}/get-file-preview-url`,
       handler: async ({ body, adminUser, response }) => {
-        const parsed = this.parseBody(filePathBodySchema, body, response);
+        const parsed = parseBody(filePathBodySchema, body, response);
         if ('error' in parsed) return parsed.error;
         const data = parsed.data;
         const { filePath } = data;
