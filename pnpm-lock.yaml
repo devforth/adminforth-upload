@@ -22,8 +22,8 @@ importers:
         specifier: ^22.10.7
         version: 22.19.13
       adminforth:
-        specifier: ^3.6.21
-        version: 3.6.21(@adminforth/connector-qdrant@1.0.4)(@types/node@22.19.13)
+        specifier: ^3.7.1
+        version: 3.7.1(@adminforth/connector-qdrant@1.0.4)(@types/node@22.19.13)
       semantic-release:
         specifier: ^24.2.1
         version: 24.2.9(typescript@5.9.3)
@@ -780,8 +780,8 @@ packages:
     resolution: {integrity: sha512-PYAthTa2m2VKxuvSD3DPC/Gy+U+sOA1LAuT8mkmRuvw+NACSaeXEQ+NHcVF7rONl6qcaxV3Uuemwawk+7+SJLw==}
     engines: {node: '>= 0.6'}
 
-  adminforth@3.6.21:
-    resolution: {integrity: sha512-RBZ7XLUcxGUOxB8WsV2ib0Vv+oTEXz6oAhziRoviVRxNE/ew+ZhVNV35xaz4Yzy8a4eWCGbjqwAEtFtYqrYeKQ==}
+  adminforth@3.7.1:
+    resolution: {integrity: sha512-fFFsvu1aS+qcLUBKAly4E/+ktqcAQCge0pbEMjNhERQheM/OXJ+Z1r9HEnzd8c6kid/hCwPKKW/91XKIMgRLcg==}
     hasBin: true
     peerDependencies:
       '@adminforth/connector-clickhouse': ^1.0.4
@@ -2719,10 +2719,10 @@ packages:
 
 snapshots:
 
-  '@adminforth/connector-qdrant@1.0.4(adminforth@3.6.21)(typescript@5.9.3)':
+  '@adminforth/connector-qdrant@1.0.4(adminforth@3.7.1)(typescript@5.9.3)':
     dependencies:
       '@qdrant/js-client-rest': 1.18.0(typescript@5.9.3)
-      adminforth: 3.6.21(@adminforth/connector-qdrant@1.0.4)(@types/node@22.19.13)
+      adminforth: 3.7.1(@adminforth/connector-qdrant@1.0.4)(@types/node@22.19.13)
       dayjs: 1.11.21
     transitivePeerDependencies:
       - typescript
@@ -3928,7 +3928,7 @@ snapshots:
       mime-types: 2.1.35
       negotiator: 0.6.3
 
-  adminforth@3.6.21(@adminforth/connector-qdrant@1.0.4)(@types/node@22.19.13):
+  adminforth@3.7.1(@adminforth/connector-qdrant@1.0.4)(@types/node@22.19.13):
     dependencies:
       '@babel/parser': 7.29.0
       '@faker-js/faker': 9.9.0
@@ -3966,7 +3966,7 @@ snapshots:
       yaml: 2.8.3
       zod: 4.3.6
     optionalDependencies:
-      '@adminforth/connector-qdrant': 1.0.4(adminforth@3.6.21)(typescript@5.9.3)
+      '@adminforth/connector-qdrant': 1.0.4(adminforth@3.7.1)(typescript@5.9.3)
     transitivePeerDependencies:
       - '@types/node'
       - bufferutil
