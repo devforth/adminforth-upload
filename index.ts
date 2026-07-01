@@ -7,7 +7,7 @@ import {
   CommitUrlToNewRecordParams,
   GetUploadUrlParams,
 } from './types.js';
-import { AdminForthPlugin, parseBody, AdminForthResource, Filters, IAdminForth, IHttpServer, suggestIfTypo, RateLimiter } from "adminforth";
+import { AdminForthPlugin, AdminForthResource, Filters, IAdminForth, IHttpServer, suggestIfTypo, RateLimiter } from "adminforth";
 import { Readable } from "stream";
 import { randomUUID } from "crypto";
 import { interpretResource, ActionCheckSource } from 'adminforth';
@@ -452,10 +452,9 @@ export default class UploadPlugin extends AdminForthPlugin {
     server.endpoint({
       method: 'POST',
       path: `/plugin/${this.pluginInstanceId}/get_file_upload_url`,
+      request_schema: getFileUploadUrlBodySchema,
       handler: async ({ body, response }) => {
-        const parsed = parseBody(getFileUploadUrlBodySchema, body, response);
-        if ('error' in parsed) return parsed.error;
-        const data = parsed.data;
+        const data = body as z.infer<typeof getFileUploadUrlBodySchema>;
         const { originalFilename, contentType, size, originalExtension, recordPk } = data;
 
         if (!originalFilename || !originalExtension || !contentType) {
@@ -463,7 +462,7 @@ export default class UploadPlugin extends AdminForthPlugin {
         }
 
         return this.getFileUploadUrl( originalFilename, contentType, size, originalExtension, recordPk );
-        
+
       }
     });
 
@@ -490,10 +489,9 @@ export default class UploadPlugin extends AdminForthPlugin {
     server.endpoint({
       method: 'POST',
       path: `/plugin/${this.pluginInstanceId}/create-image-generation-job`,
+      request_schema: createImageGenerationJobBodySchema,
       handler: async ({ body, adminUser, headers, response }) => {
-        const parsed = parseBody(createImageGenerationJobBodySchema, body, response);
-        if ('error' in parsed) return parsed.error;
-        const data = parsed.data;
+        const data = body as z.infer<typeof createImageGenerationJobBodySchema>;
         const { prompt, recordId, requestAttachmentFiles } = data;
         const jobId = randomUUID();
         jobs.set(jobId, { status: "in_progress" });
@@ -509,10 +507,9 @@ export default class UploadPlugin extends AdminForthPlugin {
     server.endpoint({
       method: 'POST',
       path: `/plugin/${this.pluginInstanceId}/get-image-generation-job-status`,
+      request_schema: jobStatusBodySchema,
       handler: async ({ body, adminUser, headers, response }) => {
-        const parsed = parseBody(jobStatusBodySchema, body, response);
-        if ('error' in parsed) return parsed.error;
-        const data = parsed.data;
+        const data = body as z.infer<typeof jobStatusBodySchema>;
         const jobId = data.jobId;
         if (!jobId) {
           response.setStatus(400);
@@ -538,10 +535,9 @@ export default class UploadPlugin extends AdminForthPlugin {
     server.endpoint({
       method: 'POST',
       path: `/plugin/${this.pluginInstanceId}/get_attachment_files`,
+      request_schema: recordIdBodySchema,
       handler: async ({ body, adminUser, response }) => {
-        const parsed = parseBody(recordIdBodySchema, body, response);
-        if ('error' in parsed) return parsed.error;
-        const data = parsed.data;
+        const data = body as z.infer<typeof recordIdBodySchema>;
         const { recordId } = data;
 
         if (!recordId) return { error: 'Missing recordId' };
@@ -565,10 +561,9 @@ export default class UploadPlugin extends AdminForthPlugin {
     server.endpoint({
       method: 'POST',
       path: `/plugin/${this.pluginInstanceId}/get-file-download-url`,
+      request_schema: filePathBodySchema,
       handler: async ({ body, adminUser, response }) => {
-        const parsed = parseBody(filePathBodySchema, body, response);
-        if ('error' in parsed) return parsed.error;
-        const data = parsed.data;
+        const data = body as z.infer<typeof filePathBodySchema>;
         const { filePath } = data;
         if (!filePath) {
           return { error: 'Missing filePath' };
@@ -588,10 +583,9 @@ export default class UploadPlugin extends AdminForthPlugin {
     server.endpoint({
       method: 'POST',
       path: `/plugin/${this.pluginInstanceId}/get-file-preview-url`,
+      request_schema: filePathBodySchema,
       handler: async ({ body, adminUser, response }) => {
-        const parsed = parseBody(filePathBodySchema, body, response);
-        if ('error' in parsed) return parsed.error;
-        const data = parsed.data;
+        const data = body as z.infer<typeof filePathBodySchema>;
         const { filePath } = data;
         if (!filePath) {
           return { error: 'Missing filePath' };
