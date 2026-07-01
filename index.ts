@@ -7,10 +7,37 @@ import {
   CommitUrlToNewRecordParams,
   GetUploadUrlParams,
 } from './types.js';
-import { AdminForthPlugin, AdminForthResource, Filters, IAdminForth, IHttpServer, suggestIfTypo, RateLimiter } from "adminforth";
+import { AdminForthPlugin, parseBody, AdminForthResource, Filters, IAdminForth, IHttpServer, suggestIfTypo, RateLimiter } from "adminforth";
 import { Readable } from "stream";
 import { randomUUID } from "crypto";
 import { interpretResource, ActionCheckSource } from 'adminforth';
+import { z } from "zod";
+
+const getFileUploadUrlBodySchema = z.object({
+  originalFilename: z.string(),
+  contentType: z.string(),
+  size: z.number(),
+  originalExtension: z.string(),
+  recordPk: z.union([z.string(), z.number()]).nullish(),
+}).strict();
+
+const createImageGenerationJobBodySchema = z.object({
+  prompt: z.string(),
+  recordId: z.union([z.string(), z.number()]).nullish(),
+  requestAttachmentFiles: z.array(z.string()),
+}).strict();
+
+const jobStatusBodySchema = z.object({
+  jobId: z.string(),
+}).strict();
+
+const recordIdBodySchema = z.object({
+  recordId: z.union([z.string(), z.number()]).nullish(),
+}).strict();
+
+const filePathBodySchema = z.object({
+  filePath: z.string(),
+}).strict();
 
 const ADMINFORTH_NOT_YET_USED_TAG = 'adminforth-candidate-for-cleanup';
 const jobs = new Map();
@@ -425,8 +452,11 @@ export default class UploadPlugin extends AdminForthPlugin {
     server.endpoint({
       method: 'POST',
       path: `/plugin/${this.pluginInstanceId}/get_file_upload_url`,
-      handler: async ({ body }) => {
-        const { originalFilename, contentType, size, originalExtension, recordPk } = body;
+      handler: async ({ body, response }) => {
+        const parsed = parseBody(getFileUploadUrlBodySchema, body, response);
+        if ('error' in parsed) return parsed.error;
+        const data = parsed.data;
+        const { originalFilename, contentType, size, originalExtension, recordPk } = data;
 
         if (!originalFilename || !originalExtension || !contentType) {
           return { error: 'originalFilename, originalExtension and contentType are required' };
@@ -460,8 +490,11 @@ export default class UploadPlugin extends AdminForthPlugin {
     server.endpoint({
       method: 'POST',
       path: `/plugin/${this.pluginInstanceId}/create-image-generation-job`,
-      handler: async ({ body, adminUser, headers }) => {
-        const { prompt, recordId, requestAttachmentFiles } = body;
+      handler: async ({ body, adminUser, headers, response }) => {
+        const parsed = parseBody(createImageGenerationJobBodySchema, body, response);
+        if ('error' in parsed) return parsed.error;
+        const data = parsed.data;
+        const { prompt, recordId, requestAttachmentFiles } = data;
         const jobId = randomUUID();
         jobs.set(jobId, { status: "in_progress" });
 
@@ -477,7 +510,10 @@ export default class UploadPlugin extends AdminForthPlugin {
       method: 'POST',
       path: `/plugin/${this.pluginInstanceId}/get-image-generation-job-status`,
       handler: async ({ body, adminUser, headers, response }) => {
-        const jobId = body.jobId;
+        const parsed = parseBody(jobStatusBodySchema, body, response);
+        if ('error' in parsed) return parsed.error;
+        const data = parsed.data;
+        const jobId = data.jobId;
         if (!jobId) {
           response.setStatus(400);
           return { ok: false, error: "Can't find job id" };
@@ -502,9 +538,12 @@ export default class UploadPlugin extends AdminForthPlugin {
     server.endpoint({
       method: 'POST',
       path: `/plugin/${this.pluginInstanceId}/get_attachment_files`,
-      handler: async ({ body, adminUser }) => {
-        const { recordId } = body;
-    
+      handler: async ({ body, adminUser, response }) => {
+        const parsed = parseBody(recordIdBodySchema, body, response);
+        if ('error' in parsed) return parsed.error;
+        const data = parsed.data;
+        const { recordId } = data;
+
         if (!recordId) return { error: 'Missing recordId' };
     
         const record = await this.adminforth.resource(this.resourceConfig.resourceId).get([
@@ -526,8 +565,11 @@ export default class UploadPlugin extends AdminForthPlugin {
     server.endpoint({
       method: 'POST',
       path: `/plugin/${this.pluginInstanceId}/get-file-download-url`,
-      handler: async ({ body, adminUser }) => {
-        const { filePath } = body;
+      handler: async ({ body, adminUser, response }) => {
+        const parsed = parseBody(filePathBodySchema, body, response);
+        if ('error' in parsed) return parsed.error;
+        const data = parsed.data;
+        const { filePath } = data;
         if (!filePath) {
           return { error: 'Missing filePath' };
         }
@@ -546,8 +588,11 @@ export default class UploadPlugin extends AdminForthPlugin {
     server.endpoint({
       method: 'POST',
       path: `/plugin/${this.pluginInstanceId}/get-file-preview-url`,
-      handler: async ({ body, adminUser }) => {
-        const { filePath } = body;
+      handler: async ({ body, adminUser, response }) => {
+        const parsed = parseBody(filePathBodySchema, body, response);
+        if ('error' in parsed) return parsed.error;
+        const data = parsed.data;
+        const { filePath } = data;
         if (!filePath) {
           return { error: 'Missing filePath' };
         }
