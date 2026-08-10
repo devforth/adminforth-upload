@@ -543,7 +543,7 @@ async function uploadFile(file: any): Promise<string> {
 
   try {
     uploading.value = true;
-    const { uploadUrl, uploadExtraParams, filePath, error, previewUrl } = await callAdminForthApi({
+    const { uploadUrl, uploadExtraParams, filePath, error, previewUrl, contentType: uploadContentType } = await callAdminForthApi({
         path: `/plugin/${props.meta.pluginInstanceId}/get_file_upload_url`,
         method: 'POST',
         body: {
@@ -571,7 +571,7 @@ async function uploadFile(file: any): Promise<string> {
         resolve(success);
       });
       xhr.open('PUT', uploadUrl, true);
-      xhr.setRequestHeader('Content-Type', type);
+      xhr.setRequestHeader('Content-Type', uploadContentType || type);
       uploadExtraParams && Object.entries(uploadExtraParams).forEach(([key, value]: [string, string]) => {
         xhr.setRequestHeader(key, value);
       })

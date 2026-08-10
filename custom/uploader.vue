@@ -314,7 +314,7 @@ const onFileChange = async (e) => {
       reader.readAsDataURL(file);
     }
     
-    const { uploadUrl, uploadExtraParams, filePath, error } = await callAdminForthApi({
+    const { uploadUrl, uploadExtraParams, filePath, error, contentType: uploadContentType } = await callAdminForthApi({
         path: `/plugin/${props.meta.pluginInstanceId}/get_file_upload_url`,
         method: 'POST',
         body: {
@@ -350,7 +350,7 @@ const onFileChange = async (e) => {
         resolve(success);
       });
       xhr.open('PUT', uploadUrl, true);
-      xhr.setRequestHeader('Content-Type', type);
+      xhr.setRequestHeader('Content-Type', uploadContentType || type);
       uploadExtraParams && Object.entries(uploadExtraParams).forEach(([key, value]: [string, string]) => {
         xhr.setRequestHeader(key, value);
       })

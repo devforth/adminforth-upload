@@ -21,6 +21,23 @@ export interface PluginOptions extends PluginsCommonOptions {
   maxFileSize?: number;
 
   /**
+   * By default, plugins is uses pre-defined content types. 
+   * But if you need to - you can add new or redefine existing content types for extensions.
+   *
+   * Use this option to define the content type for extensions the plugin does not know, e.g.
+   *
+   * ```typescript
+   * contentTypeByExtension: { heic: 'image/heic' }
+   * ```
+   *
+   * ⚠️ Mapping an extension to a content type which browsers execute (`text/html`, `image/svg+xml`,
+   * `application/xhtml+xml`, ...) allows anyone who can upload files to run scripts on the admin
+   * origin with the session of whoever opens the file. Only do it if your storage serves files from a
+   * separate origin or with `Content-Disposition: attachment`.
+   */
+  contentTypeByExtension?: Record<string, string>;
+
+  /**
    * The path where the file will be uploaded to the S3 bucket, same path will be stored in the database
    * in the column specified in {@link pathColumnName}
    * 

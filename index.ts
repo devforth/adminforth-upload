@@ -7,7 +7,7 @@ import {
   CommitUrlToNewRecordParams,
   GetUploadUrlParams,
 } from './types.js';
-import { AdminForthPlugin, AdminForthResource, Filters, IAdminForth, IHttpServer, suggestIfTypo, RateLimiter } from "adminforth";
+import { AdminForthPlugin, AdminForthResource, AdminUser, AllowedActionsEnum, Filters, IAdminForth, IHttpServer, suggestIfTypo, RateLimiter } from "adminforth";
 import { Readable } from "stream";
 import { randomUUID } from "crypto";
 import { interpretResource, ActionCheckSource } from 'adminforth';
@@ -40,6 +40,59 @@ const filePathBodySchema = z.object({
 }).strict();
 
 const ADMINFORTH_NOT_YET_USED_TAG = 'adminforth-candidate-for-cleanup';
+
+const EXTENSION_CONTENT_TYPES: Record<string, string> = {
+  // images
+  png: 'image/png',
+  jpg: 'image/jpeg',
+  jpeg: 'image/jpeg',
+  gif: 'image/gif',
+  webp: 'image/webp',
+  bmp: 'image/bmp',
+  ico: 'image/x-icon',
+  tif: 'image/tiff',
+  tiff: 'image/tiff',
+  avif: 'image/avif',
+  heic: 'image/heic',
+  heif: 'image/heif',
+  // video
+  mp4: 'video/mp4',
+  webm: 'video/webm',
+  mov: 'video/quicktime',
+  avi: 'video/x-msvideo',
+  mkv: 'video/x-matroska',
+  // audio
+  mp3: 'audio/mpeg',
+  wav: 'audio/wav',
+  ogg: 'audio/ogg',
+  oga: 'audio/ogg',
+  m4a: 'audio/mp4',
+  flac: 'audio/flac',
+  aac: 'audio/aac',
+  // documents
+  pdf: 'application/pdf',
+  txt: 'text/plain',
+  md: 'text/plain',
+  csv: 'text/csv',
+  json: 'application/json',
+  doc: 'application/msword',
+  docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  xls: 'application/vnd.ms-excel',
+  xlsx: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  ppt: 'application/vnd.ms-powerpoint',
+  pptx: 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+  // archives
+  zip: 'application/zip',
+  gz: 'application/gzip',
+  tar: 'application/x-tar',
+  '7z': 'application/x-7z-compressed',
+  rar: 'application/vnd.rar',
+  // fonts
+  woff: 'font/woff',
+  woff2: 'font/woff2',
+  ttf: 'font/ttf',
+  otf: 'font/otf',
+};
 const jobs = new Map();
 export default class UploadPlugin extends AdminForthPlugin {
   options: PluginOptions;
@@ -55,7 +108,7 @@ export default class UploadPlugin extends AdminForthPlugin {
 
   getFileDownloadUrl: ((path: string) => Promise<string>); 
 
-  getFileUploadUrl: ( originalFilename, contentType, size, originalExtension, recordPk ) => Promise<{ uploadUrl: string, tagline?: string, filePath?: string, uploadExtraParams?: Record<string, string>, previewUrl?: string, error?: string } | {error: string}>;
+  getFileUploadUrl: ( originalFilename, contentType, size, originalExtension, recordPk, preloadedRecord?: any ) => Promise<{ uploadUrl: string, contentType?: string, tagline?: string, filePath?: string, uploadExtraParams?: Record<string, string>, previewUrl?: string, error?: string } | {error: string}>;
 
   constructor(options: PluginOptions) {
     super(options, import.meta.url);
@@ -71,15 +124,27 @@ export default class UploadPlugin extends AdminForthPlugin {
       return this.options.storageAdapter.getDownloadUrl(path, expiresInSeconds);
     }
 
-    this.getFileUploadUrl = async ( originalFilename, contentType, size, originalExtension, recordPk ) : Promise<{ uploadUrl: string, tagline?: string, filePath?: string, uploadExtraParams?: Record<string, string>, previewUrl?: string, error?: string } | {error: string}> => {
-        if (this.options.allowedFileExtensions && !this.options.allowedFileExtensions.includes(originalExtension.toLowerCase())) {
+    this.getFileUploadUrl = async ( originalFilename, contentType, size, originalExtension, recordPk, preloadedRecord = undefined ) : Promise<{ uploadUrl: string, contentType?: string, tagline?: string, filePath?: string, uploadExtraParams?: Record<string, string>, previewUrl?: string, error?: string } | {error: string}> => {
+        const extension = (originalExtension || '').replace(/[^a-zA-Z0-9]/g, '').toLowerCase();
+        if (!extension) {
+          return { error: 'File extension is required' };
+        }
+        if (this.options.allowedFileExtensions && !this.options.allowedFileExtensions.includes(extension)) {
           return {
             error: `File extension "${originalExtension}" is not allowed, allowed extensions are: ${this.options.allowedFileExtensions.join(', ')}`
           };
         }
 
-        let record = undefined;
-        if (recordPk) {
+        if (size != null && this.options.maxFileSize && size > this.options.maxFileSize) {
+          return {
+            error: `File size ${size} is too large. Maximum allowed size is ${this.options.maxFileSize}`
+          };
+        }
+
+        const safeContentType = this.resolveContentType(extension);
+
+        let record = preloadedRecord;
+        if (record === undefined && recordPk) {
           // get record by recordPk
           const pkName = this.resourceConfig.columns.find((column: any) => column.primaryKey)?.name;
           record = await this.adminforth.resource(this.resourceConfig.resourceId).get(
@@ -93,11 +158,11 @@ export default class UploadPlugin extends AdminForthPlugin {
             .replace(/[^a-zA-Z0-9._-]/g, "_")
         }        
         const fileName = sanitizeFileName(originalFilename);  
-        const filePath: string = this.options.filePath({ originalFilename: fileName, originalExtension, contentType, record });
+        const filePath: string = this.options.filePath({ originalFilename: fileName, originalExtension: extension, contentType: safeContentType, record });
         if (filePath.startsWith('/')) {
           throw new Error('s3Path should not start with /, please adjust s3path function to not return / at the start of the path');
         }
-        const { uploadUrl, uploadExtraParams } = await this.options.storageAdapter.getUploadSignedUrl(filePath, contentType, 1800);
+        const { uploadUrl, uploadExtraParams } = await this.options.storageAdapter.getUploadSignedUrl(filePath, safeContentType, 1800);
         let previewUrl;
         if (this.options.preview?.previewUrl) {
           previewUrl = this.options.preview.previewUrl({ filePath });
@@ -108,6 +173,7 @@ export default class UploadPlugin extends AdminForthPlugin {
         
         return {
           uploadUrl,
+          contentType: safeContentType,
           tagline,
           filePath,
           uploadExtraParams,
@@ -117,6 +183,16 @@ export default class UploadPlugin extends AdminForthPlugin {
 
     if (this.options.generation?.rateLimit?.limit) {
       this.rateLimiter = new RateLimiter(this.options.generation.rateLimit?.limit)
+    }
+  }
+
+  private resolveContentType(extension: string): string {
+    if (this.options.contentTypeByExtension?.[extension]) {
+      return this.options.contentTypeByExtension[extension];
+    } else if (EXTENSION_CONTENT_TYPES[extension]) {
+      return EXTENSION_CONTENT_TYPES[extension];
+    } else {
+      throw new Error('Provided incorrect file extension. Do not return upload url.');
     }
   }
 
@@ -253,6 +329,14 @@ export default class UploadPlugin extends AdminForthPlugin {
     if (pathColumnIndex === -1) {
       throw new Error(`Column with name "${pathColumnName}" not found in resource "${resourceConfig.label}"`);
     }
+
+    for(const extintion of this.options.allowedFileExtensions || []){
+      try {
+        this.resolveContentType(extintion);
+      } catch(e){
+        throw new Error(`Upload plugin can't resolve content type for extension "${extintion}". Provide contentTypeByExtension in plugin options`);
+      }
+    } 
 
     const pluginFrontendOptions = {
       allowedExtensions: this.options.allowedFileExtensions,
@@ -436,6 +520,44 @@ export default class UploadPlugin extends AdminForthPlugin {
   }
   
 
+  private async checkUploadAllowed(adminUser: AdminUser, recordPk: any): Promise<{ allowed: boolean, error?: string, record?: any }> {
+    if (recordPk === undefined || recordPk === null || recordPk === '') {
+      const { allowedActions } = await interpretResource(
+        adminUser,
+        this.resourceConfig,
+        {},
+        ActionCheckSource.CreateRequest,
+        this.adminforth
+      );
+      const createAllowed = allowedActions[AllowedActionsEnum.create] as boolean | string | undefined;
+      if (createAllowed !== true) {
+        return { allowed: false, error: typeof createAllowed === 'string' ? createAllowed : 'You do not have permission to upload files to this resource' };
+      }
+      return { allowed: true };
+    }
+
+    const pkName = this.resourceConfig.columns.find((column: any) => column.primaryKey)?.name;
+    const record = await this.adminforth.resource(this.resourceConfig.resourceId).get(
+      [Filters.EQ(pkName, recordPk)]
+    );
+    if (!record) {
+      // reported as a permission error to not leak which records exist
+      return { allowed: false, error: 'You do not have permission to upload files to this record' };
+    }
+    const { allowedActions } = await interpretResource(
+      adminUser,
+      this.resourceConfig,
+      { oldRecord: record, pk: recordPk },
+      ActionCheckSource.EditRequest,
+      this.adminforth
+    );
+    const editAllowed = allowedActions[AllowedActionsEnum.edit] as boolean | string | undefined;
+    if (editAllowed !== true) {
+      return { allowed: false, error: typeof editAllowed === 'string' ? editAllowed : 'You do not have permission to upload files to this record' };
+    }
+    return { allowed: true, record };
+  }
+
   setupEndpoints(server: IHttpServer) {
     server.endpoint({
       method: 'GET',
@@ -453,7 +575,7 @@ export default class UploadPlugin extends AdminForthPlugin {
       method: 'POST',
       path: `/plugin/${this.pluginInstanceId}/get_file_upload_url`,
       request_schema: getFileUploadUrlBodySchema,
-      handler: async ({ body, response }) => {
+      handler: async ({ body, adminUser, response }) => {
         const data = body as z.infer<typeof getFileUploadUrlBodySchema>;
         const { originalFilename, contentType, size, originalExtension, recordPk } = data;
 
@@ -461,7 +583,13 @@ export default class UploadPlugin extends AdminForthPlugin {
           return { error: 'originalFilename, originalExtension and contentType are required' };
         }
 
-        return this.getFileUploadUrl( originalFilename, contentType, size, originalExtension, recordPk );
+        const { allowed, error, record } = await this.checkUploadAllowed(adminUser, recordPk);
+        if (!allowed) {
+          response.setStatus(403);
+          return { error };
+        }
+
+        return this.getFileUploadUrl( originalFilename, contentType, size, originalExtension, recordPk, record );
 
       }
     });
@@ -890,11 +1018,16 @@ export default class UploadPlugin extends AdminForthPlugin {
    *  * If you want to create a new record with this URL, you can call commitUrlToNewRecord, which will create a new record and set the path column to the uploaded file path.
    *  * Write URL to special field called pathColumnName so afterSave hook installed by the plugin will automatically mark as not candidate for auto-deletion
    *
+   * The file is always stored with the content type derived from its extension (see
+   * {@link PluginOptions.contentTypeByExtension}), not with the passed one, so that an uploader can't
+   * make the storage serve executable content. The URL is signed for the returned `contentType`, so
+   * the upload request has to use it.
+   *
    * ```ts
    * const file = input.files[0];
    *
    * // 1) Ask your backend to call getUploadUrlForExistingRecord
-   * const { uploadUrl, filePath, uploadExtraParams } = await fetch('/api/uploads/get-url-existing', {
+   * const { uploadUrl, contentType, filePath, uploadExtraParams } = await fetch('/api/uploads/get-url-existing', {
    *   method: 'POST',
    *   headers: { 'Content-Type': 'application/json' },
    *   body: JSON.stringify({
@@ -937,6 +1070,7 @@ export default class UploadPlugin extends AdminForthPlugin {
     size,
   }: GetUploadUrlParams): Promise<{
     uploadUrl: string;
+    contentType: string;
     filePath: string;
     uploadExtraParams?: Record<string, string>;
     pathColumnName: string;
@@ -993,10 +1127,12 @@ export default class UploadPlugin extends AdminForthPlugin {
     const existingValue = existingRecord?.[this.options.pathColumnName];
     const existingPaths = existingValue ? this.normalizePaths(existingValue) : undefined;
 
+    const safeContentType = this.resolveContentType(originalExtension);
+
     const filePath: string = this.options.filePath({
       originalFilename,
       originalExtension,
-      contentType,
+      contentType: safeContentType,
       record: existingRecord,
     });
 
@@ -1014,12 +1150,13 @@ export default class UploadPlugin extends AdminForthPlugin {
 
     const { uploadUrl, uploadExtraParams } = await this.options.storageAdapter.getUploadSignedUrl(
       filePath,
-      contentType,
+      safeContentType,
       1800,
     );
 
     return {
       uploadUrl,
+      contentType: safeContentType,
       filePath,
       uploadExtraParams,
       pathColumnName: this.options.pathColumnName,
