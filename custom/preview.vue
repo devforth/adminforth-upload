@@ -6,7 +6,7 @@
           <img
             v-if="guessContentTypeFromUrl(u)?.startsWith('image')"
             :src="u"
-            class="rounded-md cursor-zoom-in"
+            class="rounded-default cursor-zoom-in"
             :style="[maxWidth, minWidth]"
             ref="img"
             @click.stop="openZoom(i)"
@@ -14,7 +14,7 @@
           <video
             v-else-if="guessContentTypeFromUrl(u)?.startsWith('video')"
             :src="u"
-            class="rounded-md"
+            class="rounded-default"
             controls
             @click.stop
           />
@@ -22,19 +22,18 @@
             v-else
             :href="u"
             target="_blank"
-            class="flex gap-1 items-center py-1 px-3 me-2 text-sm font-medium text-gray-900 focus:outline-none bg-white rounded border border-gray-300 hover:bg-gray-100 hover:text-lightPrimary focus:z-10 focus:ring-4 focus:ring-gray-100 dark:focus:ring-gray-700 dark:bg-darkListTable dark:text-gray-400 dark:border-gray-600 dark:hover:text-white dark:hover:bg-gray-700 rounded-default"
+            class="af-preview-download"
+            :class="[buttonBaseStyles, buttonVariantStyles.secondary]"
           >
-            <svg class="w-4 h-4 me-2" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-              <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
-            </svg>
+            <IconDownload class="w-4 h-4 text-lightInputIconColor dark:text-darkInputIconColor" aria-hidden="true" />
             {{ $t('Download file') }}
           </a>
         </template>
       </div>
     </template>
-    <template v-else>
+    <span v-else class="text-lightInputPlaceholderText dark:text-darkInputPlaceholderText">
       {{ t('No image') }}
-    </template>
+    </span>
     
   </div>
 </template>
@@ -46,10 +45,10 @@
   }
   .medium-zoom-overlay {
     z-index: 99;
-    background: rgba(255, 255, 255, 0.8) !important;
+    background: theme('colors.lightHtml / 90%') !important;
   }
   html.dark .medium-zoom-overlay {
-    background: rgba(17, 24, 39, 0.7) !important;
+    background: theme('colors.darkHtml / 90%') !important;
   }
   body.medium-zoom--opened aside {
     filter: grayscale(1)
@@ -69,6 +68,8 @@ import { ref, computed , onMounted, watch, nextTick} from 'vue'
 import mediumZoom from 'medium-zoom'
 import { useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n';
+import { buttonBaseStyles, buttonVariantStyles } from '@/afcl';
+import { IconDownload } from '@iconify-prerendered/vue-lucide';
 
 const { t } = useI18n();
 

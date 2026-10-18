@@ -5,66 +5,65 @@
         :humanifySize="humanifySize"  
       ></ImageGenerator>
 
-      <button v-if="meta.generateImages" 
-        type="button" @click="showImageGen = true" 
-        class="
-          text-white bg-lightPrimary font-medium text-center rounded-default text-sm px-2.5 py-2.5  me-2 
-          absolute right-0 top-2
-          focus:ring-4 focus:outline-none focus:ring-purple-300 
-          hover:bg-lightPrimary/80
-          dark:focus:ring-purple-800 dark:bg-darkPrimary dark:hover:bg-darkPrimary/80 dark:focus:ring-purple-800
-          ">
-          <IconMagic class="w-5 h-5"/>
-      </button>
+      <div v-if="meta.generateImages" class="absolute right-2 top-2 z-10">
+        <Tooltip>
+          <Button
+            type="button"
+            variant="secondary"
+            size="sm"
+            iconOnly
+            class="af-uploader-generate"
+            :aria-label="$t('Generate image with AI')"
+            @click="showImageGen = true"
+          >
+            <IconWandSparkles />
+          </Button>
+          <template #tooltip>{{ $t('Generate image with AI') }}</template>
+        </Tooltip>
+      </div>
 
       <label :for="inputId" 
-        class="af-uploader flex flex-col px-3 items-center justify-center w-full h-64 border-2  border-dashed rounded-default cursor-pointer  dark:hover:!bg-darkDropzoneBackgroundHover dark:hover:bg-gray-800 hover:!bg-lightDropzoneBackgroundHover hover:bg-gray-100  dark:hover:!border-darkDropzoneBorderHover dark:hover:border-gray-500 dark:hover:!bg-darkDropzoneBackgroundHover dark:hover:bg-gray-600 hover:!border-lightDropzoneBorderHover"
+        class="af-uploader flex flex-col items-center justify-center w-full min-h-32 px-3 py-5 border border-dashed rounded-lg cursor-pointer transition-colors hover:bg-lightDropzoneBackgroundHover hover:border-lightDropzoneBorderHover dark:hover:bg-darkDropzoneBackgroundHover dark:hover:border-darkDropzoneBorderHover"
         @dragover.prevent="() => dragging = true"
         @dragleave.prevent="() => dragging = false"
         @drop.prevent="onFileChange"  
-        :class="{
-          'border-blue-600 dark:border-blue-400 !border-lightDropzoneBorderDragging dark:!border-darkDropzoneBorderDragging': dragging,
-          'border-gray-300 dark:border-gray-600 !border-lightDropzoneBorder dark:!border-darkDropzoneBorder': !dragging,
-          'bg-blue-50 dark:bg-blue-800 !bg-lightDropzoneBackgroundDragging dark:!bg-darkDropzoneBackgroundDragging': dragging,
-          'bg-gray-50 dark:bg-gray-800 !bg-lightDropzoneBackground dark:!bg-darkDropzoneBackground': !dragging,
-        }"
+        :class="dragging
+          ? 'border-lightDropzoneBorderDragging bg-lightDropzoneBackgroundDragging dark:border-darkDropzoneBorderDragging dark:bg-darkDropzoneBackgroundDragging'
+          : 'border-lightDropzoneBorder bg-lightDropzoneBackground dark:border-darkDropzoneBorder dark:bg-darkDropzoneBackground'"
       >
-          <div class="flex flex-col items-center justify-center pt-5 pb-6">
-              <img v-if="typeof imgPreview === 'string' && imgPreview" :src="imgPreview" class="w-100 mt-4 rounded-lg h-40 object-contain" />
+          <img v-if="typeof imgPreview === 'string' && imgPreview" :src="imgPreview" class="af-uploader-preview max-w-full h-40 mb-3 rounded-default object-contain" />
 
-              <svg v-else class="w-8 h-8 mb-4 text-gray-500 dark:text-gray-400 !text-lightDropzoneText dark:!text-darkDropzoneText" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 20 16">
-                  <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 13h3a3 3 0 0 0 0-6h-.025A5.56 5.56 0 0 0 16 6.5 5.5 5.5 0 0 0 5.207 5.021C5.137 5.017 5.071 5 5 5a4 4 0 0 0 0 8h2.167M10 15V6m0 0L8 8m2-2 2 2"/>
-              </svg>
+          <span v-else class="flex items-center justify-center w-9 h-9 mb-3 rounded-lg border border-lightDropzoneBorder bg-lightDropzoneBackgroundHover text-lightDropzoneIcon dark:border-darkDropzoneBorder dark:bg-darkDropzoneBackgroundHover dark:text-darkDropzoneIcon">
+            <IconCloudUpload class="w-5 h-5" />
+          </span>
 
-              <template v-if="!uploaded">
-                <p class="mb-2 text-sm text-gray-500 dark:text-gray-400 !text-lightDropzoneText dark:!text-darkDropzoneText"><span class="font-semibold">{{ $t('Click to upload') }}</span> {{ $t('or drag and drop') }}</p>
-                <p class="text-xs text-gray-500 dark:text-gray-400 !text-lightDropzoneText dark:!text-darkDropzoneText">
-                  {{ allowedExtensionsLabel }} {{ meta.maxFileSize ? $t(`(up to {size})`, { size: humanifySize(meta.maxFileSize) }) : '' }}
-                </p>
-              </template>
+          <template v-if="!uploaded">
+            <p class="mb-2 text-sm text-lightDropzoneText dark:text-darkDropzoneText">
+              <span class="font-medium text-lightPrimary dark:text-darkPrimary">{{ $t('Click to upload') }}</span> {{ $t('or drag and drop') }}
+            </p>
+            <p class="text-xs text-lightDropzoneText dark:text-darkDropzoneText">
+              {{ allowedExtensionsLabel }} {{ meta.maxFileSize ? $t(`(up to {size})`, { size: humanifySize(meta.maxFileSize) }) : '' }}
+            </p>
+          </template>
 
-              <div class="w-full bg-gray-200 rounded-full dark:bg-gray-700 mt-1 mb-2" v-if="progress > 0 && !uploaded">
-                <!-- progress bar  with smooth progress animation -->
-                <div class="bg-blue-600 text-xs font-medium text-blue-100 text-center p-0.5 leading-none rounded-full
-                  transition-all duration-200 ease-in-out" 
-                  :style="{width: `${progress}%`}">{{ progress }}%
-                </div>
-              </div>
-
-              <div v-else-if="uploaded" class="flex items-center justify-center w-full mt-1">
-                <svg class="w-4 h-4 text-green-600 dark:text-green-400" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                  <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
-                </svg>
-                <p class="ml-2 text-sm text-green-600 dark:text-green-400 flex items-center">
-                  {{ $t('File uploaded') }}
-                  <span class="text-xs text-gray-500 dark:text-gray-400 !text-lightDropzoneText dark:!text-darkDropzoneText">{{ humanifySize(uploadedSize) }}</span>
-                </p>
-
-                <button @click.stop.prevent="clear" class="ml-2 text-xs text-gray-500 dark:text-gray-400 hover:text-gray-600 dark:hover:text-gray-500
-                  hover:underline dark:hover:underline focus:outline-none !text-lightDropzoneText hover:!text-lightDropzoneText dark:!text-darkDropzoneText dark:hover:!text-darkDropzoneText">{{ $t('Clear') }}</button>
-              </div>
-              
+          <div v-if="progress > 0 && !uploaded" class="w-full max-w-xs mt-3">
+            <ProgressBar
+              :currentValue="progress"
+              :showValues="false"
+              :progressFormatter="(value: number) => `${value}%`"
+            />
           </div>
+
+          <div v-else-if="uploaded" class="flex items-center justify-center gap-2 text-sm text-lightDropzoneText dark:text-darkDropzoneText">
+            <IconCircleCheck class="w-4 h-4 text-lightSuccess dark:text-darkSuccess" aria-hidden="true" />
+            <span class="text-lightSuccess dark:text-darkSuccess">{{ $t('File uploaded') }}</span>
+            <span v-if="uploadedSize" class="text-xs">{{ humanifySize(uploadedSize) }}</span>
+            <Button type="button" variant="ghost" size="sm" class="af-uploader-clear" @click.stop.prevent="clear">
+              <IconX class="w-3.5 h-3.5" aria-hidden="true" />
+              {{ $t('Clear') }}
+            </Button>
+          </div>
+
           <input :id="inputId" type="file" :accept="allowedExtensionsAttribute"  class="hidden" @change="onFileChange" ref="uploadInputRef" />
       </label>
   </div> 
@@ -74,7 +73,8 @@
 <script setup lang="ts">
 import { computed, ref, onMounted, watch, getCurrentInstance } from 'vue'
 import { callAdminForthApi } from '@/utils'
-import { IconMagic } from '@iconify-prerendered/vue-mdi';
+import { Button, ProgressBar, Tooltip } from '@/afcl';
+import { IconCircleCheck, IconCloudUpload, IconWandSparkles, IconX } from '@iconify-prerendered/vue-lucide';
 import { useI18n } from 'vue-i18n';
 import { useRoute } from 'vue-router';
 
@@ -113,7 +113,6 @@ const uploadedSize = ref(0);
 const downloadFileUrl = ref('');
 
 watch(uploaded, (value) => {
-  console.log('Uploaded changed:', value);
   emit('update:emptiness', !value);
 });
 
@@ -216,7 +215,7 @@ onMounted(async () => {
 const allowedExtensionsLabel = computed(() => {
   const allowedExtensions = props.meta.allowedExtensions || []
   if (allowedExtensions.length === 0) {
-    return 'Any file type'
+    return t('Any file type')
   }
   // make upper case and write in format EXT1, EXT2 or EXT3
   let label = allowedExtensions.map(ext => ext.toUpperCase()).join(', ');
@@ -277,7 +276,6 @@ const onFileChange = async (e) => {
   
   const extension = name.split('.').pop();
   const nameNoExtension = name.replace(`.${extension}`, '');
-  console.log('File details:', { name, extension, size, type });
   // validate file extension
   const allowedExtensions = props.meta.allowedExtensions || []
   if (allowedExtensions.length > 0 && !allowedExtensions.includes(extension.toLowerCase())) {
