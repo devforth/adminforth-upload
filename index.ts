@@ -202,21 +202,12 @@ export default class UploadPlugin extends AdminForthPlugin {
     return [String(value)];
   }
 
-  private async callStorageAdapter(primaryMethod: string, fallbackMethod: string, filePath: string) {
-    const adapter: any = this.options.storageAdapter as any;
-    const fn = adapter?.[primaryMethod] ?? adapter?.[fallbackMethod];
-    if (typeof fn !== 'function') {
-      throw new Error(`Storage adapter is missing method "${primaryMethod}" (fallback "${fallbackMethod}")`);
-    }
-    await fn.call(adapter, filePath);
+  public markKeyForNotDeletion(filePath: string) {
+    return this.options.storageAdapter.markKeyForNotDeletion(filePath);
   }
 
-  public markKeyForNotDeletion(filePath: string) {
-    return this.callStorageAdapter('markKeyForNotDeletion', 'markKeyForNotDeletation', filePath);
-  }
-  
   public markKeyForDeletion(filePath: string) {
-    return this.callStorageAdapter('markKeyForDeletion', 'markKeyForDeletation', filePath);
+    return this.options.storageAdapter.markKeyForDeletion(filePath);
   }
 
   private async generateImages(jobId: string, prompt: string,requestAttachmentFiles: string[], recordId: any, adminUser: any, headers: any) {
@@ -821,7 +812,7 @@ export default class UploadPlugin extends AdminForthPlugin {
       throw new Error('resourceConfig is not initialized yet');
     }
 
-    const { error: createError, createdRecord, newRecordId }: any = await this.adminforth.createResourceRecord({
+    const { error: createError, createdRecord }: any = await this.adminforth.createResourceRecord({
       resource: this.resourceConfig,
       record: { ...(recordAttributes ?? {}), [this.options.pathColumnName]: filePath },
       adminUser,
@@ -839,7 +830,7 @@ export default class UploadPlugin extends AdminForthPlugin {
 
     const pkColumn = this.resourceConfig.columns.find((column: any) => column.primaryKey);
     const pkName = pkColumn?.name;
-    const newRecordPk = newRecordId ?? (pkName && createdRecord ? createdRecord[pkName] : undefined);
+    const newRecordPk = pkName && createdRecord ? createdRecord[pkName] : undefined;
 
     let previewUrl: string;
     if (this.options.preview?.previewUrl) {
@@ -1266,7 +1257,7 @@ export default class UploadPlugin extends AdminForthPlugin {
     // Mark this key as used so lifecycle rules do not delete it.
     await this.markKeyForNotDeletion(filePath);
 
-    const { error: createError, createdRecord, newRecordId }: any =
+    const { error: createError, createdRecord }: any =
       await this.adminforth.createResourceRecord({
         resource: this.resourceConfig,
         record: { ...(recordAttributes ?? {}), [this.options.pathColumnName]: filePath },
@@ -1285,7 +1276,7 @@ export default class UploadPlugin extends AdminForthPlugin {
 
     const pkColumn = this.resourceConfig.columns.find((column: any) => column.primaryKey);
     const pkName = pkColumn?.name;
-    const newRecordPk = newRecordId ?? (pkName && createdRecord ? createdRecord[pkName] : undefined);
+    const newRecordPk = pkName && createdRecord ? createdRecord[pkName] : undefined;
 
     let previewUrl: string;
     if (this.options.preview?.previewUrl) {
