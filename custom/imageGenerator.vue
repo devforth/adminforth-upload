@@ -186,7 +186,6 @@ const props = defineProps({
 const images = ref([]);
 const loading = ref(false);
 const attachmentFiles = ref<string[]>([])
-const requestAttachmentFiles = ref<Blob[] | null>([]);
 const requestAttachmentFilesUrls = ref<string[]>([]);
 const stopGeneration = ref(false);
 const fileInput = ref<HTMLInputElement | null>(null);
@@ -248,12 +247,6 @@ onMounted(async () => {
     }
   } catch (err) {
     console.error('Failed to fetch attachment files', err);
-  }
-
-  for ( const fileUrl in requestAttachmentFilesUrls.value ) {
-    const image = await fetch(fileUrl);
-    const imageBlob = await image.blob();
-    requestAttachmentFiles.value!.push(imageBlob);
   }
 });
 
@@ -427,25 +420,15 @@ async function handleAddFile(event, clipboardFile = null) {
   }
   const files = event?.target?.files || (clipboardFile ? [clipboardFile] : []);
   for (let i = 0; i < files.length; i++) {
-    if (requestAttachmentFiles.value.find((f: any) => f.name === files[i].name)) {
-      adminforth.alert({
-        message: $t('File with the same name already added'),
-        variant: 'warning',
-        timeout: 5000,
-      });
-      continue;
-    }
     const file = files[i];
     const fileUrl = await uploadFile(file);
     if (!fileUrl) continue;
-    requestAttachmentFiles.value!.push(file);
     requestAttachmentFilesUrls.value.push(fileUrl);
   }
   fileInput.value!.value = '';
 }
 
 function removeFileFromList(index: number) {
-  requestAttachmentFiles.value!.splice(index, 1);
   requestAttachmentFilesUrls.value.splice(index, 1);
 }
 
