@@ -263,19 +263,20 @@ async function confirmImage() {
   loading.value = true;
 
   const img = images.value[activeIndex.value];
-  // read  url to base64 and send it to the parent component
 
-  let imgBlob;
-  if (img.startsWith('data:')) {
-    const base64 = img.split(',')[1];
-    const mimeType = img.split(';')[0].split(':')[1];
-    const byteCharacters = atob(base64);
-    const byteNumbers = new Array(byteCharacters.length);
-    for (let i = 0; i < byteCharacters.length; i++) {
-      byteNumbers[i] = byteCharacters.charCodeAt(i);
-    }
-    const byteArray = new Uint8Array(byteNumbers);
-    imgBlob = new Blob([byteArray], { type: mimeType });
+  // fetch reads both data: and https: urls
+  let imgBlob: Blob;
+  try {
+    imgBlob = await (await fetch(img)).blob();
+  } catch (e) {
+    console.error(e);
+    adminforth.alert({
+      message: $t('Failed to load generated image'),
+      variant: 'danger',
+      timeout: 'unlimited',
+    });
+    loading.value = false;
+    return;
   }
 
   emit('uploadImage', imgBlob);
