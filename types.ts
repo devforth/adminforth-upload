@@ -228,7 +228,7 @@ export type UploadFromBufferParams = {
 export type UploadFromBufferToExistingRecordParams = UploadFromBufferParams & {
   /**
    * Primary key value of the existing record whose file path
-   * should be replaced.
+   * should be replaced (for an isArray path column the file is added to the existing ones).
    */
   recordId: any;
 };
@@ -289,7 +289,7 @@ export type GetUploadUrlForNewRecordParams = {
  */
 export type CommitUrlToUpdateExistingRecordParams = {
   /**
-   * Primary key of the record whose file is being replaced.
+   * Primary key of the record whose file is being replaced (for an isArray path column the file is added to the existing ones).
    */
   recordId: any;
 

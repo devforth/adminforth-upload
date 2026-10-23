@@ -202,6 +202,12 @@ export default class UploadPlugin extends AdminForthPlugin {
     return [String(value)];
   }
 
+  // an isArray path column keeps a list of paths, so the new file is added to the existing ones
+  private pathColumnValue(filePath: string, existingPaths: string[] = []): string | string[] {
+    const pathColumn = this.resourceConfig.columns.find((column: any) => column.name === this.options.pathColumnName);
+    return pathColumn.isArray?.enabled ? [...existingPaths, filePath] : filePath;
+  }
+
   public markKeyForNotDeletion(filePath: string) {
     return this.options.storageAdapter.markKeyForNotDeletion(filePath);
   }
@@ -814,7 +820,7 @@ export default class UploadPlugin extends AdminForthPlugin {
 
     const { error: createError, createdRecord }: any = await this.adminforth.createResourceRecord({
       resource: this.resourceConfig,
-      record: { ...(recordAttributes ?? {}), [this.options.pathColumnName]: filePath },
+      record: { ...(recordAttributes ?? {}), [this.options.pathColumnName]: this.pathColumnValue(filePath) },
       adminUser,
       extra,
     });
@@ -848,6 +854,7 @@ export default class UploadPlugin extends AdminForthPlugin {
 
   /*
    * Uploads a file from a buffer and updates an existing record's path column.
+   * For an isArray path column the file is added to the existing files instead of replacing them.
    * If the newly generated storage path would be the same as the current path,
    * throws an error to avoid potential caching issues.
    */
@@ -973,7 +980,7 @@ export default class UploadPlugin extends AdminForthPlugin {
       adminUser,
       extra,
       updates: {
-        [this.options.pathColumnName]: filePath,
+        [this.options.pathColumnName]: this.pathColumnValue(filePath, existingPaths),
       },
     } as any);
 
@@ -1156,6 +1163,7 @@ export default class UploadPlugin extends AdminForthPlugin {
 
   /**
    * Commits a previously generated upload URL to an existing record.
+   * For an isArray path column the file is added to the existing files instead of replacing them.
    *
    * Never call this method from edit afterSave and beforeSave hooks of the same resource,
    * as it would create infinite loop of record updates. 
@@ -1207,7 +1215,7 @@ export default class UploadPlugin extends AdminForthPlugin {
       adminUser,
       extra,
       updates: {
-        [this.options.pathColumnName]: filePath,
+        [this.options.pathColumnName]: this.pathColumnValue(filePath, existingPaths),
       },
     } as any);
 
@@ -1260,7 +1268,7 @@ export default class UploadPlugin extends AdminForthPlugin {
     const { error: createError, createdRecord }: any =
       await this.adminforth.createResourceRecord({
         resource: this.resourceConfig,
-        record: { ...(recordAttributes ?? {}), [this.options.pathColumnName]: filePath },
+        record: { ...(recordAttributes ?? {}), [this.options.pathColumnName]: this.pathColumnValue(filePath) },
         adminUser,
         extra,
       });
