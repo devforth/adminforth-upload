@@ -254,8 +254,8 @@ export type GetUploadUrlParams = {
   contentType: string;
 
   /**
-   * Optional file size in bytes. If provided, it will be validated
-   * against {@link PluginOptions.maxFileSize}.
+   * Optional file size in bytes. If provided, it is validated against {@link PluginOptions.maxFileSize}
+   * and the upload URL accepts only a file of exactly this size, so pass the real size of the file.
    */
   size?: number;
 };
@@ -276,8 +276,8 @@ export type GetUploadUrlForNewRecordParams = {
   contentType: string;
 
   /**
-   * Optional file size in bytes. If provided, it will be validated
-   * against {@link PluginOptions.maxFileSize}.
+   * Optional file size in bytes. If provided, it is validated against {@link PluginOptions.maxFileSize}
+   * and the upload URL accepts only a file of exactly this size, so pass the real size of the file.
    */
   size?: number;
 };
