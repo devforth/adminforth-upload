@@ -25,7 +25,7 @@
     "zod": "^4.3.6"
   },
   "peerDependencies": {
-    "adminforth": "^4.7.3"
+    "adminforth": "^4.21.0"
   },
   "keywords": [
     "adminforth",
@@ -62,7 +62,7 @@
   },
   "devDependencies": {
     "@types/node": "^22.10.7",
-    "adminforth": "^4.19.1",
+    "adminforth": "^4.21.0",
     "semantic-release": "^24.2.1",
     "semantic-release-slack-bot": "^4.0.2",
     "typescript": "^5.7.3",
