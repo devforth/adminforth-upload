@@ -7,7 +7,7 @@ import {
   CommitUrlToNewRecordParams,
   GetUploadUrlParams,
 } from './types.js';
-import { AdminForthPlugin, AdminForthResource, AdminUser, AllowedActionsEnum, Filters, IAdminForth, IHttpServer, suggestIfTypo, RateLimiter } from "adminforth";
+import { AdminForthPlugin, AdminForthResource, AdminUser, AllowedActionsEnum, Filters, HttpExtra, IAdminForth, IHttpServer, suggestIfTypo, RateLimiter } from "adminforth";
 import { Readable } from "stream";
 import { randomUUID } from "crypto";
 import { interpretResource, ActionCheckSource } from 'adminforth';
@@ -517,6 +517,15 @@ export default class UploadPlugin extends AdminForthPlugin {
   }
   
 
+  /**
+   * Writes of the upload helpers (`uploadFromBuffer*`, `commitUrl*`). They are called from the
+   * app's own endpoints, which decide who may upload, so they are system writes on behalf of
+   * `adminUser` that run the resource hooks and validation.
+   */
+  private recordWriter(adminUser: AdminUser, extra?: HttpExtra, oldRecord?: any) {
+    return this.adminforth.resource(this.resourceConfig.resourceId).asSystem({ adminUser, extra, oldRecord });
+  }
+
   private async checkUploadAllowed(adminUser: AdminUser, recordPk: any): Promise<{ allowed: boolean, error?: string, record?: any }> {
     if (recordPk === undefined || recordPk === null || recordPk === '') {
       const { allowedActions } = await interpretResource(
@@ -534,13 +543,16 @@ export default class UploadPlugin extends AdminForthPlugin {
     }
 
     const pkName = this.resourceConfig.columns.find((column: any) => column.primaryKey)?.name;
-    const record = await this.adminforth.resource(this.resourceConfig.resourceId).get(
-      [Filters.EQ(pkName, recordPk)]
-    );
-    if (!record) {
-      // reported as a permission error to not leak which records exist
+    const resource = this.adminforth.resource(this.resourceConfig.resourceId);
+    const filter = Filters.EQ(pkName, recordPk);
+    // looked up as the user, so a record outside their row scope is treated as missing;
+    // both are reported as a permission error to not leak which records exist
+    const visibleRecord = await resource.asUser(adminUser).get(filter).catch(() => null);
+    if (!visibleRecord) {
       return { allowed: false, error: 'You do not have permission to upload files to this record' };
     }
+    // filePath and attachFiles are server-side and get the full row, backendOnly columns included
+    const record = await resource.get(filter);
     const { allowedActions } = await interpretResource(
       adminUser,
       this.resourceConfig,
@@ -618,6 +630,12 @@ export default class UploadPlugin extends AdminForthPlugin {
       handler: async ({ body, adminUser, headers, response }) => {
         const data = body as z.infer<typeof createImageGenerationJobBodySchema>;
         const { prompt, recordId, requestAttachmentFiles } = data;
+        // generating an image is uploading one, so it needs the same permission
+        const { allowed, error } = await this.checkUploadAllowed(adminUser, recordId);
+        if (!allowed) {
+          response.setStatus(403);
+          return { ok: false, error };
+        }
         const jobId = randomUUID();
         jobs.set(jobId, { status: "in_progress" });
 
@@ -666,13 +684,14 @@ export default class UploadPlugin extends AdminForthPlugin {
         const { recordId } = data;
 
         if (!recordId) return { error: 'Missing recordId' };
-    
-        const record = await this.adminforth.resource(this.resourceConfig.resourceId).get([
-          Filters.EQ(this.resourceConfig.columns.find((col: any) => col.primaryKey)?.name, recordId),
-        ]);
-    
-        if (!record) return { error: 'Record not found' };
-    
+
+        // the files feed an image generation for this record, so it needs the upload permission on it
+        const { allowed, error, record } = await this.checkUploadAllowed(adminUser, recordId);
+        if (!allowed) {
+          response.setStatus(403);
+          return { error };
+        }
+
         if (!this.options.generation.attachFiles) return { files: [] };
     
         const files = await this.options.generation.attachFiles({ record, adminUser });
@@ -818,12 +837,8 @@ export default class UploadPlugin extends AdminForthPlugin {
       throw new Error('resourceConfig is not initialized yet');
     }
 
-    const { error: createError, createdRecord }: any = await this.adminforth.createResourceRecord({
-      resource: this.resourceConfig,
-      record: { ...(recordAttributes ?? {}), [this.options.pathColumnName]: this.pathColumnValue(filePath) },
-      adminUser,
-      extra,
-    });
+    const { error: createError, createdRecord } = await this.recordWriter(adminUser, extra)
+      .create({ ...(recordAttributes ?? {}), [this.options.pathColumnName]: this.pathColumnValue(filePath) });
 
     if (createError) {
       try {
@@ -973,16 +988,8 @@ export default class UploadPlugin extends AdminForthPlugin {
       throw new Error(`Upload failed with status ${resp.status}: ${bodyText}`);
     }
 
-    const { error: updateError } = await this.adminforth.updateResourceRecord({
-      resource: this.resourceConfig,
-      recordId,
-      oldRecord: existingRecord,
-      adminUser,
-      extra,
-      updates: {
-        [this.options.pathColumnName]: this.pathColumnValue(filePath, existingPaths),
-      },
-    } as any);
+    const { error: updateError } = await this.recordWriter(adminUser, extra, existingRecord)
+      .update(recordId, { [this.options.pathColumnName]: this.pathColumnValue(filePath, existingPaths) });
 
     if (updateError) {
       try {
@@ -1208,16 +1215,8 @@ export default class UploadPlugin extends AdminForthPlugin {
       );
     }
 
-    const { error: updateError } = await this.adminforth.updateResourceRecord({
-      resource: this.resourceConfig,
-      recordId,
-      oldRecord: existingRecord,
-      adminUser,
-      extra,
-      updates: {
-        [this.options.pathColumnName]: this.pathColumnValue(filePath, existingPaths),
-      },
-    } as any);
+    const { error: updateError } = await this.recordWriter(adminUser, extra, existingRecord)
+      .update(recordId, { [this.options.pathColumnName]: this.pathColumnValue(filePath, existingPaths) });
 
     if (updateError) {
       try {
@@ -1265,13 +1264,8 @@ export default class UploadPlugin extends AdminForthPlugin {
     // Mark this key as used so lifecycle rules do not delete it.
     await this.markKeyForNotDeletion(filePath);
 
-    const { error: createError, createdRecord }: any =
-      await this.adminforth.createResourceRecord({
-        resource: this.resourceConfig,
-        record: { ...(recordAttributes ?? {}), [this.options.pathColumnName]: this.pathColumnValue(filePath) },
-        adminUser,
-        extra,
-      });
+    const { error: createError, createdRecord } = await this.recordWriter(adminUser, extra)
+      .create({ ...(recordAttributes ?? {}), [this.options.pathColumnName]: this.pathColumnValue(filePath) });
 
     if (createError) {
       try {
