@@ -1,4 +1,5 @@
 allowBuilds:
   adminforth: true
+  esbuild: true
 minimumReleaseAgeExclude:
   - adminforth
