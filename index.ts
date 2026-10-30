@@ -291,6 +291,7 @@ export default class UploadPlugin extends AdminForthPlugin {
     }
     return false;
   }
+  
 
   instanceUniqueRepresentation(pluginOptions: any) : string {
     return `${pluginOptions.pathColumnName}`;
