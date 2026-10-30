@@ -162,7 +162,9 @@ export default class UploadPlugin extends AdminForthPlugin {
         if (filePath.startsWith('/')) {
           throw new Error('s3Path should not start with /, please adjust s3path function to not return / at the start of the path');
         }
-        const { uploadUrl, uploadExtraParams } = await this.options.storageAdapter.getUploadSignedUrl(filePath, safeContentType, 1800);
+        // the URL is bound to the declared size, so the client can't declare a small file and upload a bigger one;
+        // server-side callers may pass no size, their uploads are not limited as before
+        const { uploadUrl, uploadExtraParams } = await this.options.storageAdapter.getUploadSignedUrl(filePath, safeContentType, 1800, size ?? undefined);
         let previewUrl;
         if (this.options.preview?.previewUrl) {
           previewUrl = this.options.preview.previewUrl({ filePath });
@@ -804,6 +806,7 @@ export default class UploadPlugin extends AdminForthPlugin {
       filePath,
       contentType,
       1800,
+      size,
     );
 
     const headers: Record<string, string> = {
@@ -961,6 +964,7 @@ export default class UploadPlugin extends AdminForthPlugin {
       filePath,
       contentType,
       1800,
+      size,
     );
 
     const headers: Record<string, string> = {
@@ -1043,18 +1047,11 @@ export default class UploadPlugin extends AdminForthPlugin {
    *   }),
    * }).then(r => r.json());
    *
-   * const formData = new FormData();
-   * if (uploadExtraParams) {
-   *   Object.entries(uploadExtraParams).forEach(([key, value]) => {
-   *     formData.append(key, value as string);
-   *   });
-   * }
-   * formData.append('file', file);
-   *
-   * // 2) Direct upload from the browser to storage (multipart/form-data)
+   * // 2) Direct upload from the browser to storage: the file itself as the body, with the returned content type
    * const uploadResp = await fetch(uploadUrl, {
-   *   method: 'POST',
-   *   body: formData,
+   *   method: 'PUT',
+   *   headers: { 'Content-Type': contentType, ...uploadExtraParams },
+   *   body: file,
    * });
    * if (!uploadResp.ok) {
    *   throw new Error('Upload failed');
@@ -1157,6 +1154,7 @@ export default class UploadPlugin extends AdminForthPlugin {
       filePath,
       safeContentType,
       1800,
+      size ?? undefined,
     );
 
     return {
