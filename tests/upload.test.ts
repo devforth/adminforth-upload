@@ -112,7 +112,7 @@ function setup({ isArray = false, records = [] as any[], allowed = { create: tru
     }
   };
 
-  return { plugin, storageAdapter, resource, callEndpoint, editRecord, deleteRecord, createRecord };
+  return { plugin, storageAdapter, resource, endpoints, callEndpoint, editRecord, deleteRecord, createRecord };
 }
 
 beforeEach(() => {
@@ -258,5 +258,14 @@ describe('get-file-download-url', () => {
 
     expect(await callEndpoint('get-file-download-url', { filePath: 'photos/old.png' }))
       .toEqual({ error: 'You do not have permission to download this file' });
+  });
+});
+
+describe('image generation', () => {
+  it('has no generation endpoints without the generation option, as their job crashed the process', () => {
+    const { endpoints } = setup();
+
+    expect(endpoints['/plugin/test-plugin/create-image-generation-job']).toBeUndefined();
+    expect(endpoints['/plugin/test-plugin/get-file-download-url']).toBeDefined();
   });
 });

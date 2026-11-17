@@ -605,6 +605,54 @@ export default class UploadPlugin extends AdminForthPlugin {
       }
     });
 
+    server.endpoint({
+      method: 'POST',
+      path: `/plugin/${this.pluginInstanceId}/get-file-download-url`,
+      request_schema: filePathBodySchema,
+      handler: async ({ body, adminUser, response }) => {
+        const data = body as z.infer<typeof filePathBodySchema>;
+        const { filePath } = data;
+        if (!filePath) {
+          return { error: 'Missing filePath' };
+        }
+        // the path comes from the client, so it is signed only when a record the user can see stores it,
+        // otherwise any key in the bucket could be downloaded by guessing its path
+        const record = await this.adminforth.resource(this.resourceConfig.resourceId)
+          .asUser(adminUser)
+          .get(Filters.EQ(this.options.pathColumnName, filePath))
+          .catch(() => null);
+        if (!record) {
+          response.setStatus(403);
+          return { error: 'You do not have permission to download this file' };
+        }
+        const url = await this.options.storageAdapter.getDownloadUrl(filePath, 1800);
+        return { url };
+      },
+    });
+
+    server.endpoint({
+      method: 'POST',
+      path: `/plugin/${this.pluginInstanceId}/get-file-preview-url`,
+      request_schema: filePathBodySchema,
+      handler: async ({ body, adminUser, response }) => {
+        const data = body as z.infer<typeof filePathBodySchema>;
+        const { filePath } = data;
+        if (!filePath) {
+          return { error: 'Missing filePath' };
+        }
+        if (this.options.preview?.previewUrl) {
+          const url = this.options.preview.previewUrl({ filePath });
+          return { url };
+        }
+        return { error: 'failed to generate preview URL' };
+      },
+    });
+
+    // the generation endpoints read this.options.generation, without it one request crashed the process
+    if (!this.options.generation) {
+      return;
+    }
+
     // generation: {
     //   provider: 'openai-dall-e',
     //   countToGenerate: 3,
@@ -704,48 +752,6 @@ export default class UploadPlugin extends AdminForthPlugin {
       },
     });
 
-    server.endpoint({
-      method: 'POST',
-      path: `/plugin/${this.pluginInstanceId}/get-file-download-url`,
-      request_schema: filePathBodySchema,
-      handler: async ({ body, adminUser, response }) => {
-        const data = body as z.infer<typeof filePathBodySchema>;
-        const { filePath } = data;
-        if (!filePath) {
-          return { error: 'Missing filePath' };
-        }
-        // the path comes from the client, so it is signed only when a record the user can see stores it,
-        // otherwise any key in the bucket could be downloaded by guessing its path
-        const record = await this.adminforth.resource(this.resourceConfig.resourceId)
-          .asUser(adminUser)
-          .get(Filters.EQ(this.options.pathColumnName, filePath))
-          .catch(() => null);
-        if (!record) {
-          response.setStatus(403);
-          return { error: 'You do not have permission to download this file' };
-        }
-        const url = await this.options.storageAdapter.getDownloadUrl(filePath, 1800);
-        return { url };
-      },
-    });
-
-    server.endpoint({
-      method: 'POST',
-      path: `/plugin/${this.pluginInstanceId}/get-file-preview-url`,
-      request_schema: filePathBodySchema,
-      handler: async ({ body, adminUser, response }) => {
-        const data = body as z.infer<typeof filePathBodySchema>;
-        const { filePath } = data;
-        if (!filePath) {
-          return { error: 'Missing filePath' };
-        }
-        if (this.options.preview?.previewUrl) {
-          const url = this.options.preview.previewUrl({ filePath });
-          return { url };
-        }
-        return { error: 'failed to generate preview URL' };
-      },
-    });
   }
   
   /*
